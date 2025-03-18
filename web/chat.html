@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - Navi AI Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="../branding/navi_Logo-white-text.png" alt="Navi Logo" class="logo">
+            <nav>
+                <a href="index.html">Home</a>
+                <a href="upload.html">Upload Documents</a>
+            </nav>
+        </header>
+        <main class="chat-container">
+            <div class="chat-sidebar">
+                <h2>Document Context</h2>
+                <div id="document-list" class="document-list">
+                    <!-- Documents will be listed here -->
+                </div>
+            </div>
+            <div class="chat-main">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message system">
+                        <div class="message-content">
+                            <p>Hello! I'm your AI assistant. I can help answer questions about your uploaded documents.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <textarea 
+                        id="chat-input" 
+                        placeholder="Type your message here..." 
+                        rows="1"
+                        class="chat-input"
+                    ></textarea>
+                    <button id="send-button" class="send-button">
+                        <svg viewBox="0 0 24 24" width="24" height="24">
+                            <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="scripts/chat.js"></script>
+</body>
+</html>

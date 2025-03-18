@@ -5,15 +5,15 @@
 ; powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps
 
 
-#define MyAppName "Ollama"
+#define MyAppName "Navi"
 #if GetEnv("PKG_VERSION") != ""
   #define MyAppVersion GetEnv("PKG_VERSION")
 #else
   #define MyAppVersion "0.0.0"
 #endif
-#define MyAppPublisher "Ollama"
-#define MyAppURL "https://ollama.com/"
-#define MyAppExeName "ollama app.exe"
+#define MyAppPublisher "Navi"
+#define MyAppURL "https://navi.ai/"
+#define MyAppExeName "navi app.exe"
 #define MyIcon ".\assets\app.ico"
 
 [Setup]
@@ -78,7 +78,7 @@ SignTool=MySignTool
 SignedUninstaller=yes
 #endif
 
-SetupMutex=OllamaSetupMutex
+SetupMutex=NaviSetupMutex
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -123,21 +123,21 @@ Filename: "taskkill"; Parameters: "/im ""ollama.exe"" /f /t"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c timeout 5"; Flags: runhidden
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{%TEMP}\ollama*"
-Type: filesandordirs; Name: "{%LOCALAPPDATA}\Ollama"
-Type: filesandordirs; Name: "{%LOCALAPPDATA}\Programs\Ollama"
-Type: filesandordirs; Name: "{%USERPROFILE}\.ollama\models"
-Type: filesandordirs; Name: "{%USERPROFILE}\.ollama\history"
-; NOTE: if the user has a custom OLLAMA_MODELS it will be preserved
+Type: filesandordirs; Name: "{%TEMP}\navi*"
+Type: filesandordirs; Name: "{%LOCALAPPDATA}\Navi"
+Type: filesandordirs; Name: "{%LOCALAPPDATA}\Programs\Navi"
+Type: filesandordirs; Name: "{%USERPROFILE}\.navi\models"
+Type: filesandordirs; Name: "{%USERPROFILE}\.navi\history"
+; NOTE: if the user has a custom NAVI_MODELS it will be preserved
 
 [InstallDelete]
-Type: filesandordirs; Name: "{%TEMP}\ollama*"
-Type: filesandordirs; Name: "{%LOCALAPPDATA}\Programs\Ollama"
+Type: filesandordirs; Name: "{%TEMP}\navi*"
+Type: filesandordirs; Name: "{%LOCALAPPDATA}\Programs\Navi"
 
 [Messages]
-WizardReady=Ollama
-ReadyLabel1=%nLet's get you up and running with your own large language models.
-SetupAppRunningError=Another Ollama installer is running.%n%nPlease cancel or finish the other installer, then click OK to continue with this install, or Cancel to exit.
+WizardReady=Navi
+ReadyLabel1=%nLet's get you up and running with your own AI assistant.
+SetupAppRunningError=Another Navi installer is running.%n%nPlease cancel or finish the other installer, then click OK to continue with this install, or Cancel to exit.
 
 
 ;FinishedHeadingLabel=Run your first model

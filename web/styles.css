@@ -1,0 +1,243 @@
+:root {
+    --primary-color: #007bff;
+    --background-color: #1a1a1a;
+    --secondary-background: #2d2d2d;
+    --text-color: #ffffff;
+    --border-color: #404040;
+    --hover-color: #0056b3;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    margin-bottom: 40px;
+}
+
+.logo {
+    height: 40px;
+}
+
+nav {
+    display: flex;
+    gap: 20px;
+}
+
+nav a {
+    color: var(--text-color);
+    text-decoration: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    background-color: var(--secondary-background);
+    transition: background-color 0.3s;
+}
+
+nav a:hover {
+    background-color: var(--primary-color);
+}
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    margin-top: 40px;
+}
+
+.feature-card {
+    background-color: var(--secondary-background);
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.button {
+    display: inline-block;
+    padding: 12px 24px;
+    background-color: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 20px;
+    transition: background-color 0.3s;
+}
+
+.button:hover {
+    background-color: var(--hover-color);
+}
+
+/* Upload Page Styles */
+.upload-container {
+    margin-top: 30px;
+}
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    background-color: var(--secondary-background);
+    transition: border-color 0.3s;
+}
+
+.drop-zone.drag-over {
+    border-color: var(--primary-color);
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.upload-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+}
+
+.file-list {
+    margin-top: 30px;
+    background-color: var(--secondary-background);
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 10px;
+    background-color: var(--secondary-background);
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress {
+    width: 0%;
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s;
+}
+
+/* Chat Page Styles */
+.chat-container {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 20px;
+    height: calc(100vh - 140px);
+}
+
+.chat-sidebar {
+    background-color: var(--secondary-background);
+    padding: 20px;
+    border-radius: 10px;
+    overflow-y: auto;
+}
+
+.chat-main {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--secondary-background);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.chat-messages {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.message {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.message.user {
+    align-items: flex-end;
+}
+
+.message-content {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background-color: var(--background-color);
+}
+
+.message.user .message-content {
+    background-color: var(--primary-color);
+}
+
+.chat-input-container {
+    padding: 20px;
+    background-color: var(--background-color);
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input {
+    flex-grow: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    background-color: var(--secondary-background);
+    color: var(--text-color);
+    resize: none;
+}
+
+.send-button {
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 5px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.send-button:hover {
+    background-color: var(--hover-color);
+}
+
+.send-button svg {
+    color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .chat-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .chat-sidebar {
+        display: none;
+    }
+    
+    header {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    nav {
+        width: 100%;
+        justify-content: center;
+    }
+}

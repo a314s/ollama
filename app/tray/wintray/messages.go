@@ -3,12 +3,12 @@
 package wintray
 
 const (
-	firstTimeTitle   = "Ollama is running"
+	firstTimeTitle   = "Navi is running"
 	firstTimeMessage = "Click here to get started"
 	updateTitle      = "Update available"
-	updateMessage    = "Ollama version %s is ready to install"
+	updateMessage    = "Navi version %s is ready to install"
 
-	quitMenuTitle            = "Quit Ollama"
+	quitMenuTitle            = "Quit Navi"
 	updateAvailableMenuTitle = "An update is available"
 	updateMenuTitle          = "Restart to update"
 	diagLogsMenuTitle        = "View logs"

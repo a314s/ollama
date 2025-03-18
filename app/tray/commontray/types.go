@@ -1,8 +1,8 @@
 package commontray
 
 var (
-	Title   = "Ollama"
-	ToolTip = "Ollama"
+	Title   = "Navi"
+	ToolTip = "Navi"
 
 	UpdateIconName = "tray_upgrade"
 	IconName       = "tray"

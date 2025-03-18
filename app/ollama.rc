@@ -15,10 +15,10 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "FileDescription", "Ollama"
-            VALUE "InternalName", "Ollama"
-            VALUE "OriginalFilename", "ollama app.exe"
-            VALUE "ProductName", "Ollama"
+            VALUE "FileDescription", "Navi"
+            VALUE "InternalName", "Navi"
+            VALUE "OriginalFilename", "navi app.exe"
+            VALUE "ProductName", "Navi"
         END
     END
 
