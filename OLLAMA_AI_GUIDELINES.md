@@ -1,194 +1,313 @@
-# Ollama AI Development Guidelines
+# Ollama Web UI Development Guidelines
 
-## Project Overview
+## API Guidelines
 
-Ollama is an open-source platform for running large language models (LLMs) locally. This document provides guidelines for AI assistants working with the Ollama codebase to ensure consistent, high-quality contributions and reduce errors.
+### Base Configuration
+- Default API endpoint: `http://localhost:11434`
+- Request timeout: 30 seconds
+- Content type: `application/json`
 
-## Core Architecture Understanding
+### API Endpoints
+1. Models
+   - List models: `GET /api/tags`
+   - Pull model: `POST /api/pull`
+   - Create model: `POST /api/create`
+   - Delete model: `DELETE /api/delete`
 
-### Key Components
-1. **CLI Interface**: Command-line interface for user interactions
-2. **API Server**: RESTful HTTP endpoints for model management and inference
-3. **LLM Server**: Core component that manages model loading and execution
-4. **Model Management**: Handles model storage, customization, and retrieval
-5. **Document Processing System**: Analyzes and processes documents for enhanced interactions
+2. Chat/Generation
+   - Generate completion: `POST /api/generate`
+   - Chat: `POST /api/chat`
 
-### Critical Files and Directories
-- `main.go`: Entry point for the application
-- `cmd/`: Contains CLI command implementations
-- `api/`: API type definitions and client implementation
-- `llm/`: Core model server implementation
-- `server/`: API server implementation
-- `model/`: Model management functionality
-- `app/`: Desktop application code
+3. Documents
+   - Upload: `POST /api/documents`
+   - List: `GET /api/documents`
+   - Get details: `GET /api/documents/{id}`
+   - Delete: `DELETE /api/documents/{id}`
+   - Get sections: `GET /api/documents/{id}/sections`
+   - Get TOC: `GET /api/documents/{id}/toc`
+   - Get entities: `GET /api/documents/{id}/entities`
 
-## Development Standards
+### Error Handling
+- All API calls should include proper error handling
+- Error responses include:
+  - Network errors (Failed to fetch)
+  - Timeout errors (Request timed out)
+  - API-specific errors (returned in response)
+- Error messages should be user-friendly and actionable
 
-### Go Code Standards
-1. **Error Handling**: Always check and handle errors appropriately
-   ```go
-   if err != nil {
-       return fmt.Errorf("context: %w", err)
-   }
-   ```
+### File Upload Restrictions
+- Maximum file size: 50MB
+- Supported file types:
+  - PDF (`application/pdf`)
+  - Word (`application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`)
+  - Text (`text/plain`)
+  - Markdown (`text/markdown`)
+  - CSV (`text/csv`)
 
-2. **Context Propagation**: Pass context through function calls for proper cancellation
-   ```go
-   func SomeFunction(ctx context.Context, ...) {
-       // Use ctx for downstream calls
-   }
-   ```
+## Styling Guidelines
 
-3. **Logging**: Use structured logging with slog
-   ```go
-   slog.Info("message", "key1", value1, "key2", value2)
-   ```
+### Color Scheme
+Light Theme:
+```css
+--bg-primary: #ffffff
+--bg-secondary: #f5f7fa
+--bg-tertiary: #edf0f5
+--text-primary: #1a1a1a
+--text-secondary: #4a5568
+--text-tertiary: #718096
+--border-color: #e2e8f0
+--accent-color: #2563EB
+--accent-hover: #1D4ED8
+--success-color: #10b981
+--warning-color: #f59e0b
+--error-color: #ef4444
+--message-user-bg: #EBF2FF
+--message-system-bg: #ffffff
+--code-bg: #f1f5f9
+```
 
-### Model Handling
-1. **Memory Management**: Always consider VRAM and RAM requirements
-   - Check system capabilities before loading models
-   - Support partial offloading when appropriate
-   - Release resources when models are no longer needed
+Dark Theme:
+```css
+--bg-primary: #1a1a1a
+--bg-secondary: #2d3748
+--bg-tertiary: #374151
+--text-primary: #f7fafc
+--text-secondary: #cbd5e0
+--text-tertiary: #a0aec0
+--border-color: #4a5568
+--accent-color: #3B82F6
+--accent-hover: #60A5FA
+--message-user-bg: #1E40AF
+--message-system-bg: #2d3748
+--code-bg: #1e293b
+```
 
-2. **Quantization**: Respect model quantization settings
-   - Don't modify quantization unless explicitly requested
-   - Understand performance/quality tradeoffs
+### Typography
+- Font family: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`
+- Code font: `"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace`
+- Base line height: 1.5
 
-3. **Model Parameters**: Preserve user-defined parameters
-   - Temperature, context size, top_k, top_p, etc.
-   - Default to system values when not specified
+### Layout
+- Sidebar width: 280px
+- Chat input max height: 150px
+- Toast notifications:
+  - Min width: 250px
+  - Max width: 350px
+- Dialog max width: 600px
+- Model/Document cards: Minimum width 300px
 
-### API Compatibility
-1. **Request/Response Structure**: Maintain backward compatibility
-   - Don't remove fields from responses
-   - Add new fields as optional
-   - Preserve existing field semantics
+### Components
 
-2. **Error Handling**: Use appropriate HTTP status codes
-   - Return detailed error messages
-   - Don't expose sensitive information
+#### Buttons
+```css
+.button {
+    padding: 0.5rem 1rem
+    border-radius: 0.375rem
+    font-size: 0.875rem
+    font-weight: 500
+}
+
+.button.mini {
+    padding: 0.25rem 0.5rem
+    font-size: 0.75rem
+}
+```
+
+#### Messages
+- User messages: Right-aligned, accent color background
+- System messages: Left-aligned, neutral background
+- Error messages: Red background with white text
+- Maximum width: 80% of container
+
+#### Progress Indicators
+- Height: 8px
+- Border radius: 4px
+- Animated transitions: 0.3s ease
+
+## Connection Management
+
+### Connection States
+1. Connected
+   - Indicator: Green
+   - Auto-refresh: Every 30 seconds
+   - Validates: API availability, model list, chat functionality
+
+2. Disconnected
+   - Indicator: Red
+   - Shows reconnect button
+   - Provides troubleshooting steps
+
+3. Checking
+   - Indicator: Yellow
+   - Animated pulse
+   - Timeout: 10 seconds
+
+### Validation Checks
+1. Basic Connection
+   - Endpoint accessibility
+   - Response status
+   - Timeout handling
+
+2. Deep Validation
+   - Models API functionality
+   - Chat API functionality
+   - Document API functionality (optional)
+
+### Error Recovery
+- Automatic reconnection attempts
+- User-initiated reconnection
+- Detailed error logging
+- Troubleshooting suggestions based on error type
+
+## Chat Implementation
+
+### Message Handling
+- Support for streaming responses
+- Message history persistence in localStorage
+- Automatic scroll to new messages
+- Typing indicators for responses
+- Code block formatting
+- Markdown support
+
+### Model Selection
+- Persistent model selection
+- Custom model support
+- Model validation before chat
+- Automatic model availability checking
+
+### Input Handling
+- Auto-expanding textarea
+- Enter to send (Shift+Enter for new line)
+- Input validation
+- Disabled state during processing
+
+## Configuration Parameters
+
+### Application Settings
+- Version: 0.1.0
+- Default API Host: `http://localhost:11434`
 
 ### Document Processing
-1. **Metadata Preservation**: Maintain comprehensive metadata
-   - Document source, type, size, timestamps
-   - Chunk information and relationships
+- Maximum file size: 50MB
+- Supported file types:
+  ```javascript
+  [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+    'text/markdown',
+    'text/csv'
+  ]
+  ```
+- Features:
+  - Section extraction
+  - Entity extraction
+  - Table of contents generation
+  - Content summarization
 
-2. **Content Analysis**: Follow established extraction patterns
-   - Section extraction with proper hierarchies
-   - Entity recognition with consistent types
-   - Structure analysis with format preservation
+### Model Parameters
+Default values:
+```javascript
+{
+    temperature: 0.7,    // Controls randomness in generation
+    top_p: 0.9,         // Nucleus sampling parameter
+    top_k: 40,          // Top-k sampling parameter
+    context_window: 4096 // Maximum context length
+}
+```
 
-## Common Pitfalls to Avoid
+## Best Practices
 
-### Performance Issues
-1. **Memory Leaks**: Ensure resources are properly released
-   - Close file handles
-   - Release model resources
-   - Clean up temporary files
+1. Error Handling
+   - Always provide user feedback
+   - Include troubleshooting steps
+   - Log errors for debugging
+   - Graceful fallbacks
 
-2. **Excessive GPU Usage**: Optimize GPU layer allocation
-   - Don't request more GPU layers than available
-   - Consider mixed precision when appropriate
-   - Support fallback to CPU when necessary
+2. Performance
+   - Debounce connection checks
+   - Optimize message rendering
+   - Clean up event listeners
+   - Manage memory usage
 
-3. **Context Management**: Be mindful of context size limits
-   - Don't exceed model's maximum context
-   - Implement proper context window management
-   - Handle truncation appropriately
+3. User Experience
+   - Responsive design (mobile-first)
+   - Loading states for all actions
+   - Clear error messages
+   - Persistent settings
 
-### Configuration Errors
-1. **Model Paths**: Use absolute paths or proper resolution
-   - Don't assume relative paths
-   - Handle spaces and special characters
-   - Support cross-platform path formats
+4. Security
+   - Validate file uploads
+   - Sanitize user input
+   - Secure API communication
+   - Error message sanitization
 
-2. **Environment Variables**: Check for environment variables
-   - `OLLAMA_HOST`: API server address
-   - `OLLAMA_MODELS`: Model directory location
-   - `OLLAMA_DEBUG`: Debug logging toggle
+## Known Issues and Troubleshooting
 
-3. **Hardware Detection**: Properly detect and use available hardware
-   - Check for CUDA/ROCm/Metal support
-   - Verify GPU compatibility
-   - Fallback gracefully when hardware is unavailable
+### Model Validation Issues
+1. Invalid Model Name Error
+   - **Cause**: Model name validation is failing due to incorrect format or missing model
+   - **Solution**:
+     ```javascript
+     // Correct model name format
+     modelName = "llama2:latest" // With tag
+     modelName = "llama2"        // Without tag
+     ```
+   - **Validation Rules**:
+     - Must match pattern: `^[a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+$` (with tag)
+     - Or pattern: `^[a-zA-Z0-9._-]+$` (without tag)
+   - **Implementation**:
+     1. Always validate model name before API calls
+     2. Ensure model exists on server before attempting chat
+     3. Handle model not found errors gracefully
 
-### API Misuse
-1. **Streaming Responses**: Handle streaming correctly
-   - Process incremental responses
-   - Manage connection timeouts
-   - Handle early termination
+### Document Processing Issues
+1. PDF Upload Failures
+   - **Cause**: Document processing validation or API endpoint issues
+   - **Solution**:
+     ```javascript
+     // Required document validation steps
+     1. Check file type (application/pdf)
+     2. Verify file size (< 50MB)
+     3. Validate API endpoint availability
+     4. Ensure proper content-type headers
+     ```
+   - **Implementation**:
+     1. Use proper file type validation
+     2. Implement robust error handling
+     3. Add retry mechanism for failed uploads
+     4. Provide clear error messages to users
 
-2. **Concurrent Requests**: Respect server capacity
-   - Implement proper rate limiting
-   - Handle "no slots available" responses
-   - Retry with appropriate backoff
+### Connection Management
+1. Server Connection Issues
+   - **Steps**:
+     1. Verify server is running (`http://localhost:11434`)
+     2. Check connection status
+     3. Validate API endpoints
+     4. Monitor connection logs
 
-## Testing Guidelines
+2. Error Recovery
+   - Implement automatic reconnection
+   - Provide manual reconnect option
+   - Log connection events
+   - Show user-friendly error messages
 
-1. **Unit Tests**: Write tests for core functionality
-   - Test with various model sizes
-   - Test with different hardware configurations
-   - Test error conditions
+### Best Practices for Issue Prevention
+1. Model Management
+   - Cache available models list
+   - Validate models before chat
+   - Handle model loading failures
+   - Provide model status indicators
 
-2. **Integration Tests**: Verify component interactions
-   - Test CLI to API server communication
-   - Test API server to LLM server interaction
-   - Test document processing pipeline
+2. Document Handling
+   - Implement progressive uploads
+   - Add upload resume capability
+   - Validate before processing
+   - Monitor upload progress
 
-3. **Performance Testing**: Validate resource usage
-   - Measure memory consumption
-   - Track inference speed
-   - Monitor resource leaks
-
-## Document Processing Standards
-
-1. **Content Extraction**:
-   - Extract document sections with proper hierarchy
-   - Identify entities with consistent typing
-   - Preserve document structure (lists, tables, code)
-
-2. **Metadata Management**:
-   - Store comprehensive file metadata
-   - Track chunk relationships
-   - Maintain navigation structures
-
-3. **Query Processing**:
-   - Use proper vector similarity methods
-   - Provide context-aware responses
-   - Include document references
-
-## Deployment Considerations
-
-1. **Cross-Platform Compatibility**:
-   - Support Windows, macOS, and Linux
-   - Handle platform-specific optimizations
-   - Manage library dependencies appropriately
-
-2. **Container Deployment**:
-   - Follow Docker best practices
-   - Support GPU passthrough
-   - Manage persistent storage
-
-3. **Update Management**:
-   - Handle model updates gracefully
-   - Support in-place application updates
-   - Preserve user configurations
-
-## Security Guidelines
-
-1. **Local Execution**:
-   - Keep data on user's device
-   - Don't send sensitive information externally
-   - Respect user privacy
-
-2. **Model Integrity**:
-   - Verify model checksums
-   - Support secure model sources
-   - Prevent unauthorized model modification
-
-3. **API Security**:
-   - Implement proper authentication when needed
-   - Validate all inputs
-   - Prevent command injection
-
-By following these guidelines, AI assistants can effectively contribute to the Ollama project while maintaining high standards of quality and consistency.
+3. Error Handling
+   - Log all errors with context
+   - Provide clear user feedback
+   - Implement fallback options
+   - Monitor error patterns
