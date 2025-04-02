@@ -30,10 +30,10 @@ if (!fs.existsSync(assetsDir)) {
 }
 
 // Create a simple logo SVG if it doesn't exist
-const logoPath = path.join(assetsDir, 'navi-logo.png');
+const logoPath = path.join(assetsDir, 'ollama-logo.png');
 if (!fs.existsSync(logoPath)) {
   try {
-    const defaultLogo = path.join(__dirname, '..', '..', 'branding', 'navi_Logo-white-text.png');
+    const defaultLogo = path.join(__dirname, '..', '..', 'branding', 'ollama-logo.png');
     if (fs.existsSync(defaultLogo)) {
       fs.copyFileSync(defaultLogo, logoPath);
       console.log('Copied logo from branding directory');
@@ -114,6 +114,6 @@ const server = http.createServer((req, res) => {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`NaviTechAid Web UI server running at http://localhost:${PORT}/`);
-  console.log(`Make sure your NaviTechAid server is running at http://localhost:11434/`);
+  console.log(`Ollama Web UI server running at http://localhost:${PORT}/`);
+  console.log(`Make sure your Ollama server is running at http://localhost:11434/`);
 });

@@ -226,7 +226,7 @@ class DocumentsManager {
             this.uploadProgress.textContent = `Uploading ${file.name} (${i + 1}/${files.length})...`;
             
             try {
-                await naviTechAidAPI.uploadDocument(file);
+                await ollamaAPI.uploadDocument(file);
                 
                 uiManager.showToast(`Successfully uploaded ${file.name}`, 'success');
                 uploadSuccess = true;
@@ -264,31 +264,41 @@ class DocumentsManager {
             if (window.connectionManager && !window.connectionManager.isConnected) {
                 const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
+                    throw new Error('Not connected to Ollama server. Please check your connection.');
                 }
             }
             
-            // Validate document functionality
-            if (window.connectionManager) {
-                const validationResult = await window.connectionManager.validateDocumentFunctionality();
-                if (!validationResult.success) {
-                    throw new Error(validationResult.message);
-                }
-            }
-            
+            // Display loading message
             this.documentsList.innerHTML = '<div class="loading">Loading documents...</div>';
             
-            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/documents`);
-            
-            if (!response.ok) {
-                throw new Error(`Failed to load documents: ${response.status} ${response.statusText}`);
+            // Check if document API is available
+            try {
+                // Try to fetch documents from Ollama API
+                const response = await fetch(`${window.API_BASE_URL}/api/documents`);
+                
+                if (!response.ok) {
+                    // If response is not OK, check if it's a 404 (API not found)
+                    if (response.status === 404) {
+                        throw new Error('Document API is not available. This feature requires Ollama server version 0.1.15 or later.');
+                    } else {
+                        throw new Error(`Failed to load documents: ${response.status} ${response.statusText}`);
+                    }
+                }
+                
+                // If we get here, the API is available
+                const data = await response.json();
+                this.documents = data.documents || [];
+                
+                // Display documents
+                this.displayDocuments();
+            } catch (error) {
+                // If we get a network error or 404, display a more user-friendly message
+                if (error.message.includes('Document API is not available')) {
+                    this.displayDocumentsLoadingError('Document API is not available. Please upgrade your Ollama server to version 0.1.15 or later to use this feature.');
+                } else {
+                    this.displayDocumentsLoadingError(error.message);
+                }
             }
-            
-            const data = await response.json();
-            this.documents = data.documents || [];
-            
-            // Display documents
-            this.displayDocuments();
             
         } catch (error) {
             console.error('Error loading documents:', error);
@@ -338,7 +348,7 @@ class DocumentsManager {
             if (window.connectionManager && !window.connectionManager.isConnected) {
                 const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
+                    throw new Error('Not connected to Ollama server. Please check your connection.');
                 }
             }
             
@@ -520,7 +530,7 @@ class DocumentsManager {
             if (window.connectionManager && !window.connectionManager.isConnected) {
                 const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
+                    throw new Error('Not connected to Ollama server. Please check your connection.');
                 }
             }
             

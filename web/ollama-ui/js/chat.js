@@ -78,7 +78,7 @@ class ChatManager {
                 if (window.connectionManager) {
                     const connected = await window.connectionManager.checkConnection();
                     if (!connected) {
-                        this.displayModelLoadingError("Not connected to NaviTechAid server");
+                        this.displayModelLoadingError("Not connected to Ollama server");
                         return;
                     }
                 } else {
@@ -87,10 +87,10 @@ class ChatManager {
                 }
             }
             
-            // Fetch available models
-            console.log('Fetching models from API...');
+            // Fetch available models from Ollama API
+            console.log('Fetching models from Ollama API...');
             try {
-                const response = await fetch(`${naviTechAidAPI.baseUrl}/api/tags`);
+                const response = await fetch(`${window.API_BASE_URL}/api/tags`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
@@ -310,14 +310,17 @@ class ChatManager {
             }, false);
             
             // Make a simple request to check if the model works
-            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/generate`, {
+            const response = await fetch(`${window.API_BASE_URL}/api/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     model: this.currentModel,
-                    prompt: "Say 'Hello, I'm working!' if you can respond.",
+                    messages: [{
+                        role: 'user',
+                        content: "Say 'Hello, I'm working!' if you can respond."
+                    }],
                     stream: false
                 })
             });
@@ -406,7 +409,7 @@ class ChatManager {
             }
         } else {
             // Add welcome message if no history
-            this.appendMessage('Hello! I\'m your NaviTechAid assistant. Select a model and start chatting!', 'system');
+            this.appendMessage('Hello! I\'m your Ollama assistant. Select a model and start chatting!', 'system');
         }
     }
     
@@ -426,7 +429,7 @@ class ChatManager {
         localStorage.removeItem('chatHistory');
         
         // Add welcome message
-        this.appendMessage('Hello! I\'m your NaviTechAid assistant. Select a model and start chatting!', 'system');
+        this.appendMessage('Hello! I\'m your Ollama assistant. Select a model and start chatting!', 'system');
     }
     
     /**
@@ -457,7 +460,7 @@ class ChatManager {
             if (connectionManager && !connectionManager.isConnected) {
                 const connected = await connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
+                    throw new Error('Not connected to Ollama server. Please check your connection.');
                 }
             }
             
@@ -482,16 +485,45 @@ class ChatManager {
             
             // Get response from API
             let responseText = '';
-            await naviTechAidAPI.chat({
-                model: this.currentModel,
-                messages: messages
-            }, (chunk) => {
-                // Update response as it streams in
-                if (chunk.message && chunk.message.content) {
-                    responseText = chunk.message.content;
-                    this.updateLastMessage(responseText);
-                }
+            const response = await fetch(`${window.API_BASE_URL}/api/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: this.currentModel,
+                    messages: messages,
+                    stream: true
+                })
             });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to get response from Ollama');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n').filter(line => line.trim());
+
+                for (const line of lines) {
+                    try {
+                        const data = JSON.parse(line);
+                        if (data.message && data.message.content) {
+                            responseText += data.message.content;
+                            this.updateLastMessage(responseText);
+                        }
+                    } catch (e) {
+                        console.warn('Error parsing chunk:', e);
+                    }
+                }
+            }
             
             // Remove typing indicator
             typingIndicator.remove();

@@ -1,5 +1,5 @@
 /**
- * Model management functionality for the NaviTechAid Web UI
+ * Model management functionality for the Ollama Web UI
  */
 class ModelsManager {
     constructor() {
@@ -95,11 +95,11 @@ class ModelsManager {
             
             // Check connection first
             if (!window.connectionManager || !window.connectionManager.isConnected) {
-                console.log('Not connected to NaviTechAid server, attempting to connect...');
+                console.log('Not connected to Ollama server, attempting to connect...');
                 if (window.connectionManager) {
                     const connected = await window.connectionManager.checkConnection();
                     if (!connected) {
-                        this.displayModelsLoadingError("Not connected to NaviTechAid server");
+                        this.displayModelsLoadingError("Not connected to Ollama server");
                         return;
                     }
                 } else {
@@ -119,7 +119,12 @@ class ModelsManager {
             // Fetch models
             console.log('Fetching models from API...');
             try {
-                const models = await naviTechAidAPI.listModels();
+                const response = await fetch(`${window.API_BASE_URL}/api/tags`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                const models = data.models || [];
                 console.log(`Received ${models.length} models from API`);
                 this.models = models;
                 
@@ -222,7 +227,7 @@ class ModelsManager {
         this.modelsList.innerHTML = `
             <div class="error-state">
                 <p>Failed to load models: ${message}</p>
-                <p>Check that the NaviTechAid server is running and properly configured.</p>
+                <p>Check that the Ollama server is running and properly configured.</p>
             </div>
         `;
     }
@@ -442,12 +447,12 @@ class ModelsManager {
             if (!window.connectionManager || !window.connectionManager.isConnected) {
                 const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
+                    throw new Error('Not connected to Ollama server. Please check your connection.');
                 }
             }
             
             // Prepare the pull request
-            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/pull`, {
+            const response = await fetch(`${window.API_BASE_URL}/api/pull`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -615,12 +620,12 @@ class ModelsManager {
             if (!window.connectionManager || !window.connectionManager.isConnected) {
                 const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
+                    throw new Error('Not connected to Ollama server. Please check your connection.');
                 }
             }
             
             // Delete the model
-            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/delete`, {
+            const response = await fetch(`${window.API_BASE_URL}/api/delete`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'

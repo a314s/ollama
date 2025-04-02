@@ -1,7 +1,7 @@
 /**
- * API client for interacting with the NaviTechAid API
+ * API client for interacting with the Ollama API
  */
-class NaviTechAidAPI {
+class OllamaAPI {
     constructor(baseUrl = 'http://localhost:11434') {
         this.baseUrl = baseUrl;
         this.requestTimeout = 30000; // 30 seconds timeout for requests
@@ -797,4 +797,4 @@ class NaviTechAidAPI {
 }
 
 // Export a singleton instance
-const naviTechAidAPI = new NaviTechAidAPI();
+const ollamaAPI = new OllamaAPI();

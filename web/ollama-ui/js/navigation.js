@@ -1,5 +1,5 @@
 /**
- * Navigation functionality for the NaviTechAid Web UI
+ * Navigation functionality for the Ollama Web UI
  */
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Setting up navigation...");

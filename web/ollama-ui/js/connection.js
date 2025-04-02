@@ -1,5 +1,5 @@
 /**
- * Connection management and validation for the NaviTechAid Web UI
+ * Connection management and validation for the Ollama Web UI
  */
 class ConnectionManager {
     constructor() {
@@ -130,12 +130,12 @@ class ConnectionManager {
             // Connection successful
             this.isConnected = true;
             this.updateConnectionStatus('Connected', 'connected');
-            this.logConnectionEvent(`Connected to NaviTechAid server at ${apiHost}`, 'success');
+            this.logConnectionEvent(`Connected to Ollama server at ${apiHost}`, 'success');
             
             // If user initiated and successful, also do a deep validation
             if (userInitiated) {
                 // Show basic success toast
-                uiManager.showToast('Connected to NaviTechAid server', 'success');
+                uiManager.showToast('Connected to Ollama server', 'success');
                 
                 // Perform deep validation in the background
                 this.validateServerFunctionality(true);
@@ -152,7 +152,7 @@ class ConnectionManager {
             
             // If this was a user-initiated check, show a toast
             if (userInitiated) {
-                uiManager.showToast(`Failed to connect to NaviTechAid server: ${errorMessage}`, 'error');
+                uiManager.showToast(`Failed to connect to Ollama server: ${errorMessage}`, 'error');
             }
             
             return false;
@@ -198,7 +198,7 @@ class ConnectionManager {
     getConnectionErrorDetails(error) {
         if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
             // Network error - server might be down or unreachable
-            return 'Server unreachable. Make sure NaviTechAid is running and accessible.';
+            return 'Server unreachable. Make sure Ollama is running and accessible.';
         } else if (error.message.includes('status: 404')) {
             // API endpoint not found
             return 'API endpoint not found. Check if you\'re using the correct API URL.';
@@ -207,7 +207,7 @@ class ConnectionManager {
             return 'Authentication failed. Check your API credentials.';
         } else if (error.message.includes('status: 5')) {
             // Server error
-            return 'Server error. Check NaviTechAid server logs for details.';
+            return 'Server error. Check Ollama server logs for details.';
         } else {
             // Other errors
             return error.message || 'Unknown error';
@@ -233,7 +233,7 @@ class ConnectionManager {
         }
         
         // Also log to console
-        console.log(`[NaviTechAid Connection] ${timestamp} - ${message}`);
+        console.log(`[Ollama Connection] ${timestamp} - ${message}`);
     }
     
     /**
@@ -288,7 +288,7 @@ class ConnectionManager {
                 if (!connected) {
                     return {
                         success: false,
-                        message: 'Not connected to NaviTechAid server. Please check your connection.'
+                        message: 'Not connected to Ollama server. Please check your connection.'
                     };
                 }
             }
@@ -324,7 +324,7 @@ class ConnectionManager {
                 // Documents API is not available
                 return {
                     success: false,
-                    message: 'Document API is not available. Make sure you are using the latest version of NaviTechAid.'
+                    message: 'Document API is not available. Make sure you are using the latest version of Ollama.'
                 };
             }
         } catch (error) {
@@ -348,7 +348,7 @@ class ConnectionManager {
                 if (!connected) {
                     return {
                         success: false,
-                        message: 'Not connected to NaviTechAid server. Please check your connection.'
+                        message: 'Not connected to Ollama server. Please check your connection.'
                     };
                 }
             }
@@ -440,23 +440,23 @@ class ConnectionManager {
      */
     getTroubleshootingSteps(issue) {
         const commonSteps = [
-            'Make sure the NaviTechAid server is running. You can start it by running <code>navitechaid serve</code> in a terminal.',
+            'Make sure the Ollama server is running. You can start it by running <code>ollama serve</code> in a terminal.',
             'Check if the API host in settings is correct. The default is <code>http://localhost:11434</code>.',
-            'Ensure there are no firewall or network restrictions blocking access to the NaviTechAid server.'
+            'Ensure there are no firewall or network restrictions blocking access to the Ollama server.'
         ];
         
         switch (issue) {
             case 'connection':
                 return [
                     ...commonSteps,
-                    'Try restarting the NaviTechAid server.',
-                    'Check the NaviTechAid server logs for any errors or warnings.'
+                    'Try restarting the Ollama server.',
+                    'Check the Ollama server logs for any errors or warnings.'
                 ];
             
             case 'model':
                 return [
                     ...commonSteps,
-                    'Verify that the model is installed. You can install a model by running <code>navitechaid pull modelname</code> in a terminal.',
+                    'Verify that the model is installed. You can install a model by running <code>ollama pull modelname</code> in a terminal.',
                     'Check if the model is corrupted. Try removing and reinstalling the model.',
                     'Make sure you have enough disk space for the model.'
                 ];
@@ -467,16 +467,16 @@ class ConnectionManager {
                     'Make sure you have selected a valid model for chat.',
                     'Check if the model is properly installed and not corrupted.',
                     'Try using a different model to see if the issue is specific to one model.',
-                    'Check the NaviTechAid server logs for any errors related to the chat API.'
+                    'Check the Ollama server logs for any errors related to the chat API.'
                 ];
             
             case 'documents':
                 return [
                     ...commonSteps,
-                    'Make sure you are using the latest version of NaviTechAid that supports document processing.',
+                    'Make sure you are using the latest version of Ollama that supports document processing.',
                     'Check if the document format is supported (PDF, DOC, DOCX, TXT, MD, CSV).',
                     'Ensure the document file is not corrupted or too large.',
-                    'Check the NaviTechAid server logs for any errors related to document processing.'
+                    'Check the Ollama server logs for any errors related to document processing.'
                 ];
             
             default:
@@ -639,17 +639,17 @@ class ConnectionManager {
      */
     getCommonTroubleshootingSteps(type = 'connection') {
         const commonSteps = [
-            "Ensure NaviTechAid server is running on your machine or the specified host.",
+            "Ensure Ollama server is running on your machine or the specified host.",
             "Check that the API URL in settings is correct (default: http://localhost:11434).",
             "Verify your network connection and firewall settings.",
-            "Restart the NaviTechAid server if it's unresponsive."
+            "Restart the Ollama server if it's unresponsive."
         ];
         
         switch (type) {
             case 'api':
                 return [
                     ...commonSteps,
-                    "Check that the NaviTechAid server version is compatible with this UI.",
+                    "Check that the Ollama server version is compatible with this UI.",
                     "Ensure you have the necessary permissions to access the API.",
                     "Look for any error messages in the browser console or server logs."
                 ];
@@ -657,8 +657,8 @@ class ConnectionManager {
                 return [
                     ...commonSteps,
                     "Verify you have at least one model downloaded.",
-                    "Try running 'navitechaid list' in the command line to see available models.",
-                    "If no models are listed, try pulling one with 'navitechaid pull modelname'."
+                    "Try running 'ollama list' in the command line to see available models.",
+                    "If no models are listed, try pulling one with 'ollama pull modelname'."
                 ];
             case 'chat':
                 return [

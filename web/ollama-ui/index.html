@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NaviTechAid Web UI</title>
+    <title>Ollama Web UI</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
 </head>
@@ -12,8 +12,8 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <img src="assets/navi-logo.png" alt="NaviTechAid Logo" class="logo">
-                <h1>NaviTechAid</h1>
+                <img src="assets/ollama-logo.png" alt="Ollama Logo" class="logo">
+                <h1>Ollama</h1>
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-page="chat">
@@ -73,7 +73,7 @@
                     <div id="chat-messages" class="chat-messages">
                         <div class="message system">
                             <div class="message-content">
-                                <p>Hello! I'm your NaviTechAid assistant. Select a model and start chatting!</p>
+                                <p>Hello! I'm your Ollama assistant. Select a model and start chatting!</p>
                             </div>
                         </div>
                     </div>
@@ -126,7 +126,7 @@
                             <div class="form-group">
                                 <label for="model-name">Model Name</label>
                                 <input type="text" id="model-name" placeholder="e.g., llama3:latest">
-                                <small>Enter a model name from the <a href="https://navitechaid.com/library" target="_blank">NaviTechAid library</a></small>
+                                <small>Enter a model name from the <a href="https://ollama.ai/library" target="_blank">Ollama library</a></small>
                             </div>
                             <div id="pull-model-progress" class="progress-bar" style="display: none;">
                                 <div class="progress-bar-inner"></div>
@@ -237,7 +237,7 @@
                         <div class="form-group">
                             <label for="api-host">API Host</label>
                             <input type="text" id="api-host" placeholder="http://localhost:11434">
-                            <small>The URL of your NaviTechAid server</small>
+                            <small>The URL of your Ollama server</small>
                         </div>
                         <div class="form-group">
                             <button id="reconnect-btn" class="button">
@@ -311,11 +311,11 @@
                         
                         <h4>Troubleshooting Steps</h4>
                         <ol class="troubleshooting-steps">
-                            <li>Ensure NaviTechAid server is running on your machine or the specified host.</li>
+                            <li>Ensure Ollama server is running on your machine or the specified host.</li>
                             <li>Check that the API URL in settings is correct (default: http://localhost:11434).</li>
                             <li>Verify your network connection and firewall settings.</li>
-                            <li>Restart the NaviTechAid server if it's unresponsive.</li>
-                            <li>Check NaviTechAid server logs for any errors.</li>
+                            <li>Restart the Ollama server if it's unresponsive.</li>
+                            <li>Check Ollama server logs for any errors.</li>
                         </ol>
                         
                         <h4>Connection Logs</h4>
@@ -344,7 +344,7 @@
                 <div class="dialog-body">
                     <h4>Common Issues</h4>
                     <ol class="troubleshooting-steps">
-                        <li>Connection to NaviTechAid server is lost or unstable.</li>
+                        <li>Connection to Ollama server is lost or unstable.</li>
                         <li>Selected model is not available or has been removed.</li>
                         <li>Model is still loading or initializing.</li>
                         <li>Insufficient system resources (memory/GPU).</li>
@@ -356,7 +356,7 @@
                         <li>Check connection status in the header.</li>
                         <li>Verify the selected model is available in the Models section.</li>
                         <li>Try selecting a different model.</li>
-                        <li>Restart the NaviTechAid server.</li>
+                        <li>Restart the Ollama server.</li>
                         <li>Check system resource usage.</li>
                     </ol>
                 </div>
@@ -377,7 +377,7 @@
                 <div class="dialog-body">
                     <h4>Common Issues</h4>
                     <ol class="troubleshooting-steps">
-                        <li>Connection to NaviTechAid server is lost or unstable.</li>
+                        <li>Connection to Ollama server is lost or unstable.</li>
                         <li>Document format is not supported.</li>
                         <li>Document is too large to process.</li>
                         <li>Insufficient system resources for document processing.</li>
@@ -389,7 +389,7 @@
                         <li>Check connection status in the header.</li>
                         <li>Verify document format is supported (PDF, TXT, MD, etc.).</li>
                         <li>Try with a smaller document if the current one is very large.</li>
-                        <li>Restart the NaviTechAid server.</li>
+                        <li>Restart the Ollama server.</li>
                         <li>Check system resource usage.</li>
                     </ol>
                 </div>

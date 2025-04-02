@@ -1,9 +1,9 @@
 /**
- * Main entry point for the NaviTechAid Web UI
+ * Main entry point for the Ollama Web UI
  */
 document.addEventListener('DOMContentLoaded', () => {
     // API client is imported from api.js
-    window.naviTechAidAPI = naviTechAidAPI;
+    window.ollamaAPI = ollamaAPI;
     
     // UI manager is imported from ui.js
     window.uiManager = uiManager;
@@ -95,11 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
     createLogoIfNeeded();
     
     /**
-     * Create the NaviTechAid logo SVG if it doesn't exist
+     * Create the Ollama logo SVG if it doesn't exist
      */
     function createLogoIfNeeded() {
         const logoDir = 'assets';
-        const logoPath = `${logoDir}/navitechaid-logo.svg`;
+        const logoPath = `${logoDir}/ollama-logo.svg`;
         
         // Create a simple placeholder logo
         const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
