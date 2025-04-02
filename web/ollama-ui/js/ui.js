@@ -47,6 +47,8 @@ class UIManager {
      * @param {string} pageId - The ID of the page to show
      */
     showPage(pageId) {
+        console.log(`UI Manager: Showing page ${pageId}`);
+        
         // Hide all pages
         document.querySelectorAll('.page').forEach(page => {
             page.classList.remove('active');
@@ -55,7 +57,10 @@ class UIManager {
         // Show the selected page
         const page = document.getElementById(`${pageId}-page`);
         if (page) {
+            console.log(`Found page element: ${pageId}-page`);
             page.classList.add('active');
+        } else {
+            console.error(`Page element not found: ${pageId}-page`);
         }
         
         // Update navigation
@@ -65,7 +70,16 @@ class UIManager {
         
         const navItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
         if (navItem) {
+            console.log(`Found nav item for: ${pageId}`);
             navItem.classList.add('active');
+        } else {
+            console.error(`Nav item not found for page: ${pageId}`);
+        }
+        
+        // Update URL hash without triggering hashchange event
+        const currentHash = window.location.hash.substring(1);
+        if (currentHash !== pageId) {
+            history.pushState(null, '', `#${pageId}`);
         }
     }
 

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3001; // Changed port to 3001 to avoid conflict
+const PORT = 3002; // Changed port to 3002 to avoid conflict with existing server
 
 // MIME types for different file extensions
 const MIME_TYPES = {

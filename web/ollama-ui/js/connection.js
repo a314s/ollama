@@ -105,10 +105,18 @@ class ConnectionManager {
             }
             
             // Update UI to show checking status
-            this.updateConnectionStatus('checking', 'checking');
+            this.updateConnectionStatus('Checking connection...', 'checking');
+            
+            // Set a timeout to ensure we don't get stuck in checking state
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Connection check timed out')), 10000);
+            });
             
             // Try to fetch the list of models as a connection test
-            const response = await fetch(`${apiHost}/api/tags`);
+            const fetchPromise = fetch(`${apiHost}/api/tags`);
+            
+            // Race between fetch and timeout
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
             
             if (!response.ok) {
                 throw new Error(`Server responded with status: ${response.status}`);
@@ -121,7 +129,7 @@ class ConnectionManager {
             
             // Connection successful
             this.isConnected = true;
-            this.updateConnectionStatus('connected', 'connected');
+            this.updateConnectionStatus('Connected', 'connected');
             this.logConnectionEvent(`Connected to NaviTechAid server at ${apiHost}`, 'success');
             
             // If user initiated and successful, also do a deep validation
@@ -137,7 +145,7 @@ class ConnectionManager {
         } catch (error) {
             // Connection failed
             this.isConnected = false;
-            this.updateConnectionStatus('disconnected', 'disconnected');
+            this.updateConnectionStatus('Disconnected', 'disconnected');
             
             const errorMessage = this.getConnectionErrorDetails(error);
             this.logConnectionEvent(`Connection failed: ${errorMessage}`, 'error');

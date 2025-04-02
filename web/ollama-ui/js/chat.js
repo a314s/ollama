@@ -57,11 +57,7 @@ class ChatManager {
      */
     async loadModels() {
         try {
-            // First check if we have a connection and valid models
-            if (!window.connectionManager || !window.connectionManager.isConnected) {
-                this.displayModelLoadingError("Not connected to Ollama server");
-                return;
-            }
+            console.log('Loading models for chat...');
             
             // Clear existing options
             while (this.modelSelect.firstChild) {
@@ -76,56 +72,81 @@ class ChatManager {
             placeholderOption.selected = true;
             this.modelSelect.appendChild(placeholderOption);
             
+            // Check connection first
+            if (!window.connectionManager || !window.connectionManager.isConnected) {
+                console.log('Checking connection before loading models...');
+                if (window.connectionManager) {
+                    const connected = await window.connectionManager.checkConnection();
+                    if (!connected) {
+                        this.displayModelLoadingError("Not connected to NaviTechAid server");
+                        return;
+                    }
+                } else {
+                    this.displayModelLoadingError("Connection manager not initialized");
+                    return;
+                }
+            }
+            
             // Fetch available models
-            const response = await fetch(`${ollamaAPI.baseUrl}/api/tags`);
-            
-            if (!response.ok) {
-                throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
+            console.log('Fetching models from API...');
+            try {
+                const response = await fetch(`${naviTechAidAPI.baseUrl}/api/tags`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const models = data.models || [];
+                
+                console.log(`Received ${models.length} models for chat`);
+                
+                if (models.length === 0) {
+                    this.displayModelLoadingError("No models available");
+                    return;
+                }
+                
+                // Remove placeholder
+                this.modelSelect.removeChild(placeholderOption);
+                
+                // Add models to dropdown
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.name;
+                    this.modelSelect.appendChild(option);
+                });
+                
+                // Add option for custom model
+                const customOption = document.createElement('option');
+                customOption.value = "custom";
+                customOption.textContent = "➕ Add Custom Model";
+                customOption.classList.add('custom-model-option');
+                this.modelSelect.appendChild(customOption);
+                
+                // Set previously selected model if available
+                const savedModel = localStorage.getItem('currentModel');
+                if (savedModel && models.some(model => model.name === savedModel)) {
+                    this.modelSelect.value = savedModel;
+                    this.currentModel = savedModel;
+                } else {
+                    // Set first available model as default
+                    this.modelSelect.value = models[0].name;
+                    this.currentModel = models[0].name;
+                }
+                
+                // Enable send button if a model is selected
+                this.sendButton.disabled = !this.currentModel || this.currentModel === 'custom';
+                
+                console.log('Models loaded successfully for chat');
+            } catch (apiError) {
+                console.error('API error when loading models for chat:', apiError);
+                this.displayModelLoadingError(`API error: ${apiError.message}`);
             }
-            
-            const data = await response.json();
-            const models = data.models || [];
-            
-            if (models.length === 0) {
-                this.displayModelLoadingError("No models available");
-                return;
-            }
-            
-            // Remove placeholder
-            this.modelSelect.removeChild(placeholderOption);
-            
-            // Add models to dropdown
-            models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model.name;
-                option.textContent = model.name;
-                this.modelSelect.appendChild(option);
-            });
-            
-            // Add option for custom model
-            const customOption = document.createElement('option');
-            customOption.value = "custom";
-            customOption.textContent = "➕ Add Custom Model";
-            customOption.classList.add('custom-model-option');
-            this.modelSelect.appendChild(customOption);
-            
-            // Set previously selected model if available
-            const savedModel = localStorage.getItem('currentModel');
-            if (savedModel && models.some(model => model.name === savedModel)) {
-                this.modelSelect.value = savedModel;
-                this.currentModel = savedModel;
-            } else {
-                // Set first available model as default
-                this.modelSelect.value = models[0].name;
-                this.currentModel = models[0].name;
-            }
-            
-            // Enable send button if a model is selected
-            this.sendButton.disabled = !this.currentModel || this.currentModel === 'custom';
             
         } catch (error) {
             this.displayModelLoadingError(error.message);
-            console.error('Error loading models:', error);
+            console.error('Error loading models for chat:', error);
         }
     }
     
@@ -222,7 +243,7 @@ class ChatManager {
         try {
             uiManager.showToast(`Checking if model ${modelName} exists...`, 'info');
             
-            const response = await fetch(`${ollamaAPI.baseUrl}/api/generate`, {
+            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -289,7 +310,7 @@ class ChatManager {
             }, false);
             
             // Make a simple request to check if the model works
-            const response = await fetch(`${ollamaAPI.baseUrl}/api/generate`, {
+            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -385,7 +406,7 @@ class ChatManager {
             }
         } else {
             // Add welcome message if no history
-            this.appendMessage('Hello! I\'m your Ollama assistant. Select a model and start chatting!', 'system');
+            this.appendMessage('Hello! I\'m your NaviTechAid assistant. Select a model and start chatting!', 'system');
         }
     }
     
@@ -405,7 +426,7 @@ class ChatManager {
         localStorage.removeItem('chatHistory');
         
         // Add welcome message
-        this.appendMessage('Hello! I\'m your Ollama assistant. Select a model and start chatting!', 'system');
+        this.appendMessage('Hello! I\'m your NaviTechAid assistant. Select a model and start chatting!', 'system');
     }
     
     /**
@@ -436,7 +457,7 @@ class ChatManager {
             if (connectionManager && !connectionManager.isConnected) {
                 const connected = await connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to Ollama server. Please check your connection.');
+                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
                 }
             }
             
@@ -461,7 +482,7 @@ class ChatManager {
             
             // Get response from API
             let responseText = '';
-            await ollamaAPI.chat({
+            await naviTechAidAPI.chat({
                 model: this.currentModel,
                 messages: messages
             }, (chunk) => {

@@ -7,8 +7,7 @@ class ModelsManager {
         this.modelTags = document.getElementById('model-tags');
         this.pullModelBtn = document.getElementById('pull-model-btn');
         this.pullModelDialog = document.getElementById('pull-model-dialog');
-        this.pullModelForm = document.getElementById('pull-model-form');
-        this.pullModelName = document.getElementById('pull-model-name');
+        this.pullModelName = document.getElementById('model-name');
         this.pullModelSubmit = document.getElementById('pull-model-submit');
         this.pullModelCancel = document.getElementById('pull-model-cancel');
         this.pullModelProgress = document.getElementById('pull-model-progress');
@@ -32,16 +31,29 @@ class ModelsManager {
             this.showPullModelDialog();
         });
         
-        // Handle form submission
-        this.pullModelForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.pullModel(this.pullModelName.value);
-        });
+        // Handle pull model submission
+        this.pullModelSubmit = document.getElementById('confirm-pull');
+        if (this.pullModelSubmit) {
+            this.pullModelSubmit.addEventListener('click', () => {
+                this.pullModel(this.pullModelName.value);
+            });
+        }
         
         // Handle dialog close
-        this.pullModelCancel.addEventListener('click', () => {
-            this.hidePullModelDialog();
-        });
+        this.pullModelCancel = document.getElementById('pull-model-dialog').querySelector('.cancel-dialog');
+        if (this.pullModelCancel) {
+            this.pullModelCancel.addEventListener('click', () => {
+                this.hidePullModelDialog();
+            });
+        }
+        
+        // Also handle the X button
+        const closeDialogBtn = document.getElementById('pull-model-dialog').querySelector('.close-dialog');
+        if (closeDialogBtn) {
+            closeDialogBtn.addEventListener('click', () => {
+                this.hidePullModelDialog();
+            });
+        }
         
         // Set up event delegation for model actions
         this.modelsList.addEventListener('click', (e) => {
@@ -79,21 +91,44 @@ class ModelsManager {
      */
     async loadModels() {
         try {
+            console.log('Loading models...');
+            
             // Check connection first
             if (!window.connectionManager || !window.connectionManager.isConnected) {
-                this.displayModelsLoadingError("Not connected to NaviTechAid server");
-                return;
+                console.log('Not connected to NaviTechAid server, attempting to connect...');
+                if (window.connectionManager) {
+                    const connected = await window.connectionManager.checkConnection();
+                    if (!connected) {
+                        this.displayModelsLoadingError("Not connected to NaviTechAid server");
+                        return;
+                    }
+                } else {
+                    this.displayModelsLoadingError("Connection manager not initialized");
+                    return;
+                }
             }
             
             // Clear the models list
-            this.modelsList.innerHTML = '<div class="loading">Loading models...</div>';
+            if (this.modelsList) {
+                this.modelsList.innerHTML = '<div class="loading">Loading models...</div>';
+            } else {
+                console.error('Models list element not found');
+                return;
+            }
             
             // Fetch models
-            const models = await naviTechAidAPI.listModels();
-            this.models = models;
-            
-            // Display models
-            this.displayModels();
+            console.log('Fetching models from API...');
+            try {
+                const models = await naviTechAidAPI.listModels();
+                console.log(`Received ${models.length} models from API`);
+                this.models = models;
+                
+                // Display models
+                this.displayModels();
+            } catch (apiError) {
+                console.error('API error when loading models:', apiError);
+                this.displayModelsLoadingError(`API error: ${apiError.message}`);
+            }
             
         } catch (error) {
             console.error('Error loading models:', error);
@@ -110,52 +145,73 @@ class ModelsManager {
      * Display models
      */
     displayModels() {
+        console.log('Displaying models...');
+        
+        if (!this.modelsList) {
+            console.error('Models list element not found');
+            return;
+        }
+        
         if (!this.models || this.models.length === 0) {
+            console.log('No models available');
             this.modelsList.innerHTML = '<div class="empty-state">No models available. Pull a model to get started.</div>';
             return;
         }
         
-        // Clear the list
-        this.modelsList.innerHTML = '';
+        console.log(`Displaying ${this.models.length} models`);
         
-        // Group models by format
-        const modelsByFormat = {};
-        
-        this.models.forEach(model => {
-            const format = model.details?.format || 'Unknown';
+        try {
+            // Clear the list
+            this.modelsList.innerHTML = '';
             
-            if (!modelsByFormat[format]) {
-                modelsByFormat[format] = [];
-            }
+            // Group models by format
+            const modelsByFormat = {};
             
-            modelsByFormat[format].push(model);
-        });
-        
-        // Create format sections
-        for (const format in modelsByFormat) {
-            const formatSection = document.createElement('div');
-            formatSection.className = 'format-section';
-            
-            const formatHeader = document.createElement('h3');
-            formatHeader.className = 'format-header';
-            formatHeader.textContent = format;
-            
-            const formatModels = document.createElement('div');
-            formatModels.className = 'format-models';
-            
-            modelsByFormat[format].forEach(model => {
-                const modelCard = this.createModelCard(model);
-                formatModels.appendChild(modelCard);
+            this.models.forEach(model => {
+                const format = model.details?.format || 'Unknown';
+                
+                if (!modelsByFormat[format]) {
+                    modelsByFormat[format] = [];
+                }
+                
+                modelsByFormat[format].push(model);
             });
             
-            formatSection.appendChild(formatHeader);
-            formatSection.appendChild(formatModels);
+            // Create format sections
+            for (const format in modelsByFormat) {
+                const formatSection = document.createElement('div');
+                formatSection.className = 'format-section';
+                
+                const formatHeader = document.createElement('h3');
+                formatHeader.className = 'format-header';
+                formatHeader.textContent = format;
+                
+                const formatModels = document.createElement('div');
+                formatModels.className = 'format-models';
+                
+                modelsByFormat[format].forEach(model => {
+                    try {
+                        const modelCard = this.createModelCard(model);
+                        formatModels.appendChild(modelCard);
+                    } catch (cardError) {
+                        console.error(`Error creating card for model ${model.name}:`, cardError);
+                    }
+                });
+                
+                formatSection.appendChild(formatHeader);
+                formatSection.appendChild(formatModels);
+                
+                this.modelsList.appendChild(formatSection);
+            }
             
-            this.modelsList.appendChild(formatSection);
+            // Update model tags
+            this.updateModelTags();
+            
+            console.log('Models displayed successfully');
+        } catch (error) {
+            console.error('Error displaying models:', error);
+            this.modelsList.innerHTML = `<div class="error-state">Error displaying models: ${error.message}</div>`;
         }
-        
-        // Update model tags
-        this.updateModelTags();
     }
     
     /**
@@ -378,6 +434,8 @@ class ModelsManager {
         this.isPulling = true;
         this.pullModelStatus.textContent = `Pulling model: ${modelName}`;
         this.pullModelProgress.style.display = 'block';
+        this.pullModelProgress.innerHTML = '<div class="progress-bar-inner"></div>';
+        this.pullModelProgress.classList.add('indeterminate');
         
         try {
             // Check connection first
@@ -432,6 +490,13 @@ class ModelsManager {
                             const completed = parseInt(match[1]);
                             const total = parseInt(match[2]);
                             const percent = Math.round((completed / total) * 100);
+                            
+                            // Update progress bar
+                            this.pullModelProgress.classList.remove('indeterminate');
+                            const progressBar = this.pullModelProgress.querySelector('.progress-bar-inner');
+                            if (progressBar) {
+                                progressBar.style.width = `${percent}%`;
+                            }
                             
                             this.pullModelStatus.textContent = `Downloading ${modelName}: ${percent}%`;
                         } else {

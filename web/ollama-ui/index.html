@@ -16,19 +16,19 @@
                 <h1>NaviTechAid</h1>
             </div>
             <nav class="sidebar-nav">
-                <a href="#chat" class="nav-item active" data-page="chat">
+                <a href="#" class="nav-item active" data-page="chat">
                     <svg viewBox="0 0 24 24" class="nav-icon"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"></path></svg>
                     Chat
                 </a>
-                <a href="#models" class="nav-item" data-page="models">
+                <a href="#" class="nav-item" data-page="models">
                     <svg viewBox="0 0 24 24" class="nav-icon"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zm0 3.53L5.8 9l6.2 3.37 6.2-3.37L12 6.53zm-1 9.08l-8.49-4.61L1 12.28l11 6 11-6-1.51-1.28L11 15.61z"></path></svg>
                     Models
                 </a>
-                <a href="#documents" class="nav-item" data-page="documents">
+                <a href="#" class="nav-item" data-page="documents">
                     <svg viewBox="0 0 24 24" class="nav-icon"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"></path></svg>
                     Documents
                 </a>
-                <a href="#settings" class="nav-item" data-page="settings">
+                <a href="#" class="nav-item" data-page="settings">
                     <svg viewBox="0 0 24 24" class="nav-icon"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"></path></svg>
                     Settings
                 </a>
@@ -128,6 +128,10 @@
                                 <input type="text" id="model-name" placeholder="e.g., llama3:latest">
                                 <small>Enter a model name from the <a href="https://navitechaid.com/library" target="_blank">NaviTechAid library</a></small>
                             </div>
+                            <div id="pull-model-progress" class="progress-bar" style="display: none;">
+                                <div class="progress-bar-inner"></div>
+                            </div>
+                            <div id="pull-model-status" class="status-message"></div>
                         </div>
                         <div class="dialog-footer">
                             <button class="button cancel-dialog">Cancel</button>
@@ -409,6 +413,7 @@
     <script src="js/models.js"></script>
     <script src="js/documents.js"></script>
     <script src="js/settings.js"></script>
+    <script src="js/navigation.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

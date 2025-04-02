@@ -673,7 +673,7 @@ body {
 }
 
 .dialog-content {
-    background-color: var(--background-color);
+    background-color: var(--bg-primary);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     width: 90%;
@@ -709,7 +709,7 @@ body {
 }
 
 .close-dialog:hover {
-    color: var(--text-color);
+    color: var(--text-primary);
 }
 
 .dialog-body {
@@ -743,22 +743,22 @@ body {
 }
 
 .button.primary {
-    background-color: var(--primary-color);
+    background-color: var(--accent-color);
     color: white;
 }
 
 .button.primary:hover {
-    background-color: var(--primary-color-hover);
+    background-color: var(--accent-hover);
 }
 
 .button.secondary {
-    background-color: var(--background-color-secondary);
-    color: var(--text-color);
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     border: 1px solid var(--border-color);
 }
 
 .button.secondary:hover {
-    background-color: var(--background-color-tertiary);
+    background-color: var(--bg-tertiary);
 }
 
 .button.mini {
@@ -1033,7 +1033,7 @@ code {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     margin-top: 10px;
-    background-color: var(--background-color-secondary);
+    background-color: var(--bg-secondary);
     padding: 10px;
 }
 
@@ -1049,7 +1049,7 @@ code {
 }
 
 .log-entry.info {
-    color: var(--text-color);
+    color: var(--text-primary);
 }
 
 .log-entry.success {
@@ -1065,7 +1065,7 @@ code {
 }
 
 .log-timestamp {
-    color: var(--text-color-secondary);
+    color: var(--text-secondary);
     margin-right: 5px;
     font-size: 0.8rem;
 }
@@ -1101,12 +1101,12 @@ code {
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    background-color: var(--background-color-secondary);
+    background-color: var(--bg-secondary);
 }
 
 .upload-progress-bar {
     height: 10px;
-    background-color: var(--background-color);
+    background-color: var(--bg-primary);
     border-radius: 5px;
     overflow: hidden;
     margin-top: 5px;
@@ -1114,7 +1114,7 @@ code {
 
 .upload-progress {
     height: 100%;
-    background-color: var(--primary-color);
+    background-color: var(--accent-color);
     width: 0;
     transition: width 0.3s ease;
 }
@@ -1122,7 +1122,42 @@ code {
 .upload-status {
     font-size: 0.9rem;
     margin-bottom: 5px;
-    color: var(--text-color-secondary);
+    color: var(--text-secondary);
+}
+
+/* Pull model progress bar */
+#pull-model-progress {
+    width: 100%;
+    height: 8px;
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+#pull-model-progress .progress-bar-inner {
+    height: 100%;
+    background-color: var(--accent-color);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+#pull-model-progress.indeterminate .progress-bar-inner {
+    position: relative;
+    width: 30%;
+    animation: progress-animation 1.5s infinite;
+}
+
+@keyframes progress-animation {
+    0% { width: 0%; left: 0; }
+    50% { width: 30%; left: 70%; }
+    100% { width: 0%; left: 100%; }
+}
+
+#pull-model-status {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
 }
 
 /* Section header styles */
