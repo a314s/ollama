@@ -7,13 +7,13 @@
     --text-secondary: #4a5568;
     --text-tertiary: #718096;
     --border-color: #e2e8f0;
-    --accent-color: #4f46e5;
-    --accent-hover: #4338ca;
+    --accent-color: #2563EB; /* NaviTechAid blue */
+    --accent-hover: #1D4ED8;
     --success-color: #10b981;
     --warning-color: #f59e0b;
     --error-color: #ef4444;
     --shadow-color: rgba(0, 0, 0, 0.1);
-    --message-user-bg: #f0f4ff;
+    --message-user-bg: #EBF2FF; /* Light NaviTechAid blue */
     --message-system-bg: #ffffff;
     --code-bg: #f1f5f9;
 }
@@ -26,10 +26,10 @@
     --text-secondary: #cbd5e0;
     --text-tertiary: #a0aec0;
     --border-color: #4a5568;
-    --accent-color: #6366f1;
-    --accent-hover: #818cf8;
+    --accent-color: #3B82F6; /* NaviTechAid blue for dark theme */
+    --accent-hover: #60A5FA;
     --shadow-color: rgba(0, 0, 0, 0.3);
-    --message-user-bg: #3730a3;
+    --message-user-bg: #1E40AF; /* Dark NaviTechAid blue */
     --message-system-bg: #2d3748;
     --code-bg: #1e293b;
 }
@@ -80,8 +80,26 @@ body {
 }
 
 .logo {
-    width: 32px;
-    height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo img {
+    height: 2.5rem;
+    width: auto;
+}
+
+.sidebar-header .logo {
+    height: 2rem;
+    width: auto;
+}
+
+.header .logo h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
 }
 
 .sidebar-nav {

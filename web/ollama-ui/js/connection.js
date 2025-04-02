@@ -1,5 +1,5 @@
 /**
- * Connection management and validation for the Ollama Web UI
+ * Connection management and validation for the NaviTechAid Web UI
  */
 class ConnectionManager {
     constructor() {
@@ -75,11 +75,17 @@ class ConnectionManager {
     }
     
     /**
-     * Check connection to the Ollama server
+     * Check connection to the NaviTechAid server
      * @param {boolean} userInitiated - Whether the check was initiated by the user
+     * @param {boolean} deepValidation - Whether to perform deep validation of server functionality
      * @returns {Promise<boolean>} - Whether the connection is successful
      */
-    async checkConnection(userInitiated = false) {
+    async checkConnection(userInitiated = false, deepValidation = false) {
+        if (deepValidation) {
+            const validationResult = await this.validateServerFunctionality(userInitiated);
+            return validationResult.success;
+        }
+        
         try {
             // Get API host from settings
             const settings = localStorage.getItem('settings');
@@ -114,11 +120,15 @@ class ConnectionManager {
             // Connection successful
             this.isConnected = true;
             this.updateConnectionStatus('connected');
-            this.logConnectionEvent(`Connected to Ollama server at ${apiHost}`, 'success');
+            this.logConnectionEvent(`Connected to NaviTechAid server at ${apiHost}`, 'success');
             
-            // If this was a user-initiated check, show a toast
+            // If user initiated and successful, also do a deep validation
             if (userInitiated) {
-                uiManager.showToast('Successfully connected to Ollama server', 'success');
+                // Show basic success toast
+                uiManager.showToast('Connected to NaviTechAid server', 'success');
+                
+                // Perform deep validation in the background
+                this.validateServerFunctionality(true);
             }
             
             return true;
@@ -132,7 +142,7 @@ class ConnectionManager {
             
             // If this was a user-initiated check, show a toast
             if (userInitiated) {
-                uiManager.showToast(`Failed to connect to Ollama server: ${errorMessage}`, 'error');
+                uiManager.showToast(`Failed to connect to NaviTechAid server: ${errorMessage}`, 'error');
             }
             
             return false;
@@ -160,10 +170,10 @@ class ConnectionManager {
                 this.connectionStatus.textContent = 'Checking connection...';
                 break;
             case 'connected':
-                this.connectionStatus.textContent = 'Connected to Ollama server';
+                this.connectionStatus.textContent = 'Connected to NaviTechAid server';
                 break;
             case 'disconnected':
-                this.connectionStatus.textContent = 'Disconnected from Ollama server';
+                this.connectionStatus.textContent = 'Disconnected from NaviTechAid server';
                 break;
         }
     }
@@ -176,7 +186,7 @@ class ConnectionManager {
     getConnectionErrorDetails(error) {
         if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
             // Network error - server might be down or unreachable
-            return 'Server unreachable. Make sure Ollama is running and accessible.';
+            return 'Server unreachable. Make sure NaviTechAid is running and accessible.';
         } else if (error.message.includes('status: 404')) {
             // API endpoint not found
             return 'API endpoint not found. Check if you\'re using the correct API URL.';
@@ -185,7 +195,7 @@ class ConnectionManager {
             return 'Authentication failed. Check your API credentials.';
         } else if (error.message.includes('status: 5')) {
             // Server error
-            return 'Server error. Check Ollama server logs for details.';
+            return 'Server error. Check NaviTechAid server logs for details.';
         } else {
             // Other errors
             return error.message || 'Unknown error';
@@ -193,54 +203,25 @@ class ConnectionManager {
     }
     
     /**
-     * Log a connection event
-     * @param {string} message - The event message
-     * @param {string} level - The event level (info, success, warning, error)
+     * Log connection event with timestamp
+     * @param {string} message - Message to log
+     * @param {string} type - Type of message (info, success, warning, error)
      */
-    logConnectionEvent(message, level = 'info') {
-        const timestamp = new Date().toISOString();
+    logConnectionEvent(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const logItem = document.createElement('div');
+        logItem.className = `log-item ${type}`;
+        logItem.textContent = `${timestamp} - ${message}`;
         
-        // Add to logs array
-        this.connectionLogs.unshift({
-            timestamp,
-            message,
-            level
-        });
-        
-        // Limit the number of logs
-        if (this.connectionLogs.length > this.maxLogs) {
-            this.connectionLogs.pop();
+        // Add to connection logs if available
+        const connectionLogs = document.getElementById('connection-logs');
+        if (connectionLogs) {
+            connectionLogs.appendChild(logItem);
+            connectionLogs.scrollTop = connectionLogs.scrollHeight;
         }
         
-        // Update the logs display if the container exists
-        this.updateConnectionLogs();
-    }
-    
-    /**
-     * Update the connection logs display
-     */
-    updateConnectionLogs() {
-        if (!this.connectionLogsContainer) {
-            return;
-        }
-        
-        // Clear the container
-        this.connectionLogsContainer.innerHTML = '';
-        
-        // Add each log entry
-        this.connectionLogs.forEach(log => {
-            const logEntry = document.createElement('div');
-            logEntry.className = `log-entry ${log.level}`;
-            
-            const timestamp = document.createElement('span');
-            timestamp.className = 'log-timestamp';
-            timestamp.textContent = new Date(log.timestamp).toLocaleTimeString();
-            
-            logEntry.appendChild(timestamp);
-            logEntry.appendChild(document.createTextNode(' ' + log.message));
-            
-            this.connectionLogsContainer.appendChild(logEntry);
-        });
+        // Also log to console
+        console.log(`[NaviTechAid Connection] ${timestamp} - ${message}`);
     }
     
     /**
@@ -295,7 +276,7 @@ class ConnectionManager {
                 if (!connected) {
                     return {
                         success: false,
-                        message: 'Not connected to Ollama server. Please check your connection.'
+                        message: 'Not connected to NaviTechAid server. Please check your connection.'
                     };
                 }
             }
@@ -331,7 +312,7 @@ class ConnectionManager {
                 // Documents API is not available
                 return {
                     success: false,
-                    message: 'Document API is not available. Make sure you are using the latest version of Ollama.'
+                    message: 'Document API is not available. Make sure you are using the latest version of NaviTechAid.'
                 };
             }
         } catch (error) {
@@ -355,7 +336,7 @@ class ConnectionManager {
                 if (!connected) {
                     return {
                         success: false,
-                        message: 'Not connected to Ollama server. Please check your connection.'
+                        message: 'Not connected to NaviTechAid server. Please check your connection.'
                     };
                 }
             }
@@ -447,23 +428,23 @@ class ConnectionManager {
      */
     getTroubleshootingSteps(issue) {
         const commonSteps = [
-            'Make sure the Ollama server is running. You can start it by running <code>ollama serve</code> in a terminal.',
+            'Make sure the NaviTechAid server is running. You can start it by running <code>navitechaid serve</code> in a terminal.',
             'Check if the API host in settings is correct. The default is <code>http://localhost:11434</code>.',
-            'Ensure there are no firewall or network restrictions blocking access to the Ollama server.'
+            'Ensure there are no firewall or network restrictions blocking access to the NaviTechAid server.'
         ];
         
         switch (issue) {
             case 'connection':
                 return [
                     ...commonSteps,
-                    'Try restarting the Ollama server.',
-                    'Check the Ollama server logs for any errors or warnings.'
+                    'Try restarting the NaviTechAid server.',
+                    'Check the NaviTechAid server logs for any errors or warnings.'
                 ];
             
             case 'model':
                 return [
                     ...commonSteps,
-                    'Verify that the model is installed. You can install a model by running <code>ollama pull modelname</code> in a terminal.',
+                    'Verify that the model is installed. You can install a model by running <code>navitechaid pull modelname</code> in a terminal.',
                     'Check if the model is corrupted. Try removing and reinstalling the model.',
                     'Make sure you have enough disk space for the model.'
                 ];
@@ -474,18 +455,213 @@ class ConnectionManager {
                     'Make sure you have selected a valid model for chat.',
                     'Check if the model is properly installed and not corrupted.',
                     'Try using a different model to see if the issue is specific to one model.',
-                    'Check the Ollama server logs for any errors related to the chat API.'
+                    'Check the NaviTechAid server logs for any errors related to the chat API.'
                 ];
             
             case 'documents':
                 return [
                     ...commonSteps,
-                    'Make sure you are using the latest version of Ollama that supports document processing.',
+                    'Make sure you are using the latest version of NaviTechAid that supports document processing.',
                     'Check if the document format is supported (PDF, DOC, DOCX, TXT, MD, CSV).',
                     'Ensure the document file is not corrupted or too large.',
-                    'Check the Ollama server logs for any errors related to document processing.'
+                    'Check the NaviTechAid server logs for any errors related to document processing.'
                 ];
             
+            default:
+                return commonSteps;
+        }
+    }
+    
+    /**
+     * Deep validation of server functionality
+     * @param {boolean} userInitiated - Whether the check was initiated by the user
+     * @returns {Promise<{success: boolean, details: object}>} - Validation result with details
+     */
+    async validateServerFunctionality(userInitiated = false) {
+        try {
+            // First check basic connection
+            const connected = await this.checkConnection(false);
+            if (!connected) {
+                return {
+                    success: false,
+                    details: {
+                        connection: false,
+                        models: false,
+                        chat: false,
+                        documents: false
+                    }
+                };
+            }
+            
+            // Get API host from settings
+            const settings = localStorage.getItem('settings');
+            let apiHost = 'http://localhost:11434';
+            
+            if (settings) {
+                try {
+                    const parsedSettings = JSON.parse(settings);
+                    if (parsedSettings.apiHost) {
+                        apiHost = parsedSettings.apiHost;
+                    }
+                } catch (error) {
+                    console.error('Error parsing settings:', error);
+                }
+            }
+            
+            // Test models listing functionality
+            let modelsWorking = false;
+            let availableModels = [];
+            try {
+                const modelsResponse = await fetch(`${apiHost}/api/tags`);
+                if (modelsResponse.ok) {
+                    const modelsData = await modelsResponse.json();
+                    availableModels = modelsData.models || [];
+                    modelsWorking = availableModels.length > 0;
+                    
+                    // Update stored models
+                    this.availableModels = availableModels;
+                }
+            } catch (error) {
+                this.logConnectionEvent(`Models API failed: ${error.message}`, 'error');
+            }
+            
+            // Test chat functionality with a simple query to the first available model
+            let chatWorking = false;
+            if (modelsWorking && availableModels.length > 0) {
+                try {
+                    const modelName = availableModels[0].name;
+                    const chatTestResponse = await fetch(`${apiHost}/api/generate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            prompt: 'Hello, can you respond with the word "working" to test connectivity?',
+                            stream: false
+                        })
+                    });
+                    
+                    if (chatTestResponse.ok) {
+                        const chatData = await chatTestResponse.json();
+                        chatWorking = chatData && chatData.response && chatData.response.length > 0;
+                    }
+                } catch (error) {
+                    this.logConnectionEvent(`Chat API failed: ${error.message}`, 'error');
+                }
+            }
+            
+            // Test documents functionality (if available)
+            let documentsWorking = false;
+            try {
+                const documentsResponse = await fetch(`${apiHost}/api/embeddings`);
+                documentsWorking = documentsResponse.ok;
+            } catch (error) {
+                this.logConnectionEvent(`Documents API failed: ${error.message}`, 'warning');
+                // Documents API might not be available in all NaviTechAid versions
+                // so this failure is less critical
+            }
+            
+            const result = {
+                success: modelsWorking && chatWorking,
+                details: {
+                    connection: true,
+                    models: modelsWorking,
+                    chat: chatWorking,
+                    documents: documentsWorking
+                }
+            };
+            
+            // Log overall status
+            if (result.success) {
+                this.logConnectionEvent(`Server functionality validated successfully`, 'success');
+                this.isConnected = true;
+                this.updateConnectionStatus('connected');
+                
+                if (userInitiated) {
+                    uiManager.showToast('Server is fully operational', 'success');
+                }
+            } else {
+                // We have a connection but functionality is limited
+                this.logConnectionEvent(`Server connected but has limited functionality`, 'warning');
+                this.isConnected = true; // Still connected but with issues
+                this.updateConnectionStatus('connected');
+                
+                // Create a detailed message about what's not working
+                let issues = [];
+                if (!result.details.models) issues.push('Models listing not working');
+                if (!result.details.chat) issues.push('Chat functionality not working');
+                if (!result.details.documents) issues.push('Document processing not working');
+                
+                if (userInitiated) {
+                    uiManager.showToast(`Server connected but has issues: ${issues.join(', ')}`, 'warning');
+                }
+            }
+            
+            return result;
+        } catch (error) {
+            this.logConnectionEvent(`Validation failed: ${error.message}`, 'error');
+            this.isConnected = false;
+            this.updateConnectionStatus('disconnected');
+            
+            if (userInitiated) {
+                uiManager.showToast(`Server validation failed: ${error.message}`, 'error');
+            }
+            
+            return {
+                success: false,
+                details: {
+                    connection: false,
+                    models: false,
+                    chat: false,
+                    documents: false
+                }
+            };
+        }
+    }
+    
+    /**
+     * Get common troubleshooting steps based on issue type
+     * @param {string} type - Type of issue (api, connection, models, etc.)
+     * @returns {string[]} - Array of troubleshooting steps
+     */
+    getCommonTroubleshootingSteps(type = 'connection') {
+        const commonSteps = [
+            "Ensure NaviTechAid server is running on your machine or the specified host.",
+            "Check that the API URL in settings is correct (default: http://localhost:11434).",
+            "Verify your network connection and firewall settings.",
+            "Restart the NaviTechAid server if it's unresponsive."
+        ];
+        
+        switch (type) {
+            case 'api':
+                return [
+                    ...commonSteps,
+                    "Check that the NaviTechAid server version is compatible with this UI.",
+                    "Ensure you have the necessary permissions to access the API.",
+                    "Look for any error messages in the browser console or server logs."
+                ];
+            case 'models':
+                return [
+                    ...commonSteps,
+                    "Verify you have at least one model downloaded.",
+                    "Try running 'navitechaid list' in the command line to see available models.",
+                    "If no models are listed, try pulling one with 'navitechaid pull modelname'."
+                ];
+            case 'chat':
+                return [
+                    ...commonSteps,
+                    "Ensure the selected model is properly loaded.",
+                    "Check if the model is compatible with the chat format.",
+                    "Try a different model to see if the issue is model-specific."
+                ];
+            case 'documents':
+                return [
+                    ...commonSteps,
+                    "Check that the document format is supported.",
+                    "Ensure the document is not too large for processing.",
+                    "Verify that the document embedding functionality is working."
+                ];
             default:
                 return commonSteps;
         }

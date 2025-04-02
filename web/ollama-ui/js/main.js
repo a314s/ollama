@@ -1,10 +1,10 @@
 /**
- * Main entry point for the Ollama Web UI
+ * Main entry point for the NaviTechAid Web UI
  */
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize API client
-    const ollamaAPI = new OllamaAPI();
-    window.ollamaAPI = ollamaAPI;
+    const naviTechAidAPI = new NaviTechAidAPI();
+    window.naviTechAidAPI = naviTechAidAPI;
     
     // Initialize UI manager
     const uiManager = new UIManager();
@@ -169,11 +169,11 @@ document.addEventListener('DOMContentLoaded', () => {
     createLogoIfNeeded();
     
     /**
-     * Create the Ollama logo SVG if it doesn't exist
+     * Create the NaviTechAid logo SVG if it doesn't exist
      */
     function createLogoIfNeeded() {
         const logoDir = 'assets';
-        const logoPath = `${logoDir}/ollama-logo.svg`;
+        const logoPath = `${logoDir}/navitechaid-logo.svg`;
         
         // Create a simple placeholder logo
         const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
@@ -211,3 +211,189 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 });
+
+/**
+ * API class for interacting with the NaviTechAid server
+ */
+class NaviTechAidAPI {
+    constructor() {
+        this.baseUrl = 'http://localhost:11434';
+        this.loadSettings();
+    }
+    
+    /**
+     * Load API settings from localStorage
+     */
+    loadSettings() {
+        const settings = localStorage.getItem('settings');
+        if (settings) {
+            try {
+                const parsedSettings = JSON.parse(settings);
+                if (parsedSettings.apiHost) {
+                    this.baseUrl = parsedSettings.apiHost;
+                }
+            } catch (error) {
+                console.error('Error parsing settings:', error);
+            }
+        }
+    }
+    
+    /**
+     * List available models
+     * @returns {Promise<Array>} - List of models
+     */
+    async listModels() {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/tags`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to list models: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            return data.models || [];
+        } catch (error) {
+            console.error('Error listing models:', error);
+            return [];
+        }
+    }
+    
+    /**
+     * Generate a response from the model
+     * @param {string} model - Model name
+     * @param {string} prompt - User prompt
+     * @param {boolean} stream - Whether to stream the response
+     * @param {Object} options - Additional options
+     * @returns {Promise<Response>} - Fetch response object
+     */
+    async generateResponse(model, prompt, stream = true, options = {}) {
+        try {
+            return await fetch(`${this.baseUrl}/api/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model,
+                    prompt,
+                    stream,
+                    ...options
+                })
+            });
+        } catch (error) {
+            console.error('Error generating response:', error);
+            throw error;
+        }
+    }
+}
+
+/**
+ * UI manager class for handling UI elements and interactions
+ */
+class UIManager {
+    constructor() {
+        this.toastContainer = document.getElementById('toast-container');
+    }
+    
+    /**
+     * Show a toast notification
+     * @param {string} message - Toast message
+     * @param {string} type - Toast type (info, success, warning, error)
+     * @param {number} duration - Duration in milliseconds
+     */
+    showToast(message, type = 'info', duration = 3000) {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        
+        this.toastContainer.appendChild(toast);
+        
+        // Show toast
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 10);
+        
+        // Hide toast after duration
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                this.toastContainer.removeChild(toast);
+            }, 300);
+        }, duration);
+    }
+    
+    /**
+     * Show a dialog
+     * @param {string} dialogId - ID of the dialog element
+     */
+    showDialog(dialogId) {
+        const dialog = document.getElementById(dialogId);
+        if (dialog) {
+            dialog.classList.add('active');
+        }
+    }
+    
+    /**
+     * Hide a dialog
+     * @param {string} dialogId - ID of the dialog element
+     */
+    hideDialog(dialogId) {
+        const dialog = document.getElementById(dialogId);
+        if (dialog) {
+            dialog.classList.remove('active');
+        }
+    }
+    
+    /**
+     * Load settings from localStorage
+     */
+    loadSettings() {
+        const settings = localStorage.getItem('settings');
+        if (settings) {
+            try {
+                const parsedSettings = JSON.parse(settings);
+                
+                // Set API host input
+                const apiHostInput = document.getElementById('api-host');
+                if (apiHostInput && parsedSettings.apiHost) {
+                    apiHostInput.value = parsedSettings.apiHost;
+                }
+                
+                // Set other settings as needed
+                
+            } catch (error) {
+                console.error('Error parsing settings:', error);
+            }
+        }
+    }
+    
+    /**
+     * Save settings to localStorage
+     */
+    saveSettings() {
+        // Get API host value
+        const apiHostInput = document.getElementById('api-host');
+        const apiHost = apiHostInput ? apiHostInput.value.trim() : 'http://localhost:11434';
+        
+        // Create settings object
+        const settings = {
+            apiHost
+        };
+        
+        // Save to localStorage
+        localStorage.setItem('settings', JSON.stringify(settings));
+        
+        // Update API base URL
+        if (naviTechAidAPI) {
+            naviTechAidAPI.baseUrl = apiHost;
+        }
+        
+        // Show success toast
+        this.showToast('Settings saved successfully', 'success');
+        
+        // Check connection with new settings
+        if (connectionManager) {
+            connectionManager.checkConnection(true);
+        }
+    }
+}

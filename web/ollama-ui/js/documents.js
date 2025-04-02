@@ -1,58 +1,51 @@
 /**
- * Document management functionality for the Ollama Web UI
- * Integrates with the enhanced document processing system
+ * Document management functionality for the NaviTechAid Web UI
  */
 class DocumentsManager {
     constructor() {
         this.documentsList = document.getElementById('documents-list');
         this.uploadDocumentBtn = document.getElementById('upload-document-btn');
-        this.uploadDocumentDialog = document.getElementById('upload-document-dialog');
-        this.dropZone = document.getElementById('drop-zone');
-        this.fileInput = document.getElementById('file-input');
-        this.uploadProgressContainer = document.getElementById('upload-progress-container');
+        this.dropArea = document.getElementById('document-drop-area');
         this.uploadProgress = document.getElementById('upload-progress');
-        this.uploadStatus = document.getElementById('upload-status');
         this.troubleshootBtn = document.getElementById('documents-troubleshoot-btn');
+        
+        this.documents = [];
+        this.isUploading = false;
         
         this.init();
     }
     
     /**
-     * Initialize the document management functionality
+     * Initialize the documents management functionality
      */
     init() {
         // Load documents
         this.loadDocuments();
         
-        // Set up upload document dialog
+        // Set up upload button
         this.uploadDocumentBtn.addEventListener('click', () => {
-            uiManager.showDialog('upload-document-dialog');
-        });
-        
-        // Handle dialog close buttons
-        document.querySelectorAll('.close-dialog, .cancel-dialog').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const dialog = e.target.closest('.dialog');
-                if (dialog) {
-                    dialog.classList.remove('active');
-                }
+            // Create a file input element
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.pdf,.txt,.md,.doc,.docx,.csv';
+            fileInput.multiple = true;
+            
+            // Handle file selection
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileUpload(e.target.files);
             });
+            
+            // Trigger file selection dialog
+            fileInput.click();
         });
         
-        // Set up drag and drop functionality
+        // Set up drag and drop
         this.setupDragAndDrop();
         
-        // Set up file input
-        this.fileInput.addEventListener('change', (e) => {
-            this.handleFiles(e.target.files);
-        });
-        
         // Set up troubleshoot button
-        if (this.troubleshootBtn) {
-            this.troubleshootBtn.addEventListener('click', () => {
-                this.showTroubleshootingSteps();
-            });
-        }
+        this.troubleshootBtn.addEventListener('click', () => {
+            document.getElementById('documents-troubleshooting-dialog').classList.add('active');
+        });
         
         // Set up event delegation for document actions
         this.documentsList.addEventListener('click', (e) => {
@@ -76,28 +69,28 @@ class DocumentsManager {
     setupDragAndDrop() {
         // Prevent default drag behaviors
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            this.dropZone.addEventListener(eventName, this.preventDefaults, false);
+            this.dropArea.addEventListener(eventName, this.preventDefaults, false);
             document.body.addEventListener(eventName, this.preventDefaults, false);
         });
         
         // Highlight drop zone when dragging over it
         ['dragenter', 'dragover'].forEach(eventName => {
-            this.dropZone.addEventListener(eventName, () => {
-                this.dropZone.classList.add('drag-over');
+            this.dropArea.addEventListener(eventName, () => {
+                this.dropArea.classList.add('drag-over');
             }, false);
         });
         
         ['dragleave', 'drop'].forEach(eventName => {
-            this.dropZone.addEventListener(eventName, () => {
-                this.dropZone.classList.remove('drag-over');
+            this.dropArea.addEventListener(eventName, () => {
+                this.dropArea.classList.remove('drag-over');
             }, false);
         });
         
         // Handle dropped files
-        this.dropZone.addEventListener('drop', (e) => {
+        this.dropArea.addEventListener('drop', (e) => {
             const dt = e.dataTransfer;
             const files = dt.files;
-            this.handleFiles(files);
+            this.handleFileUpload(files);
         }, false);
     }
     
@@ -111,15 +104,15 @@ class DocumentsManager {
     }
     
     /**
-     * Handle files for upload
+     * Handle file upload
      * @param {FileList} files - The files to handle
      */
-    async handleFiles(files) {
+    async handleFileUpload(files) {
         if (!files || files.length === 0) return;
         
         // First validate document functionality
-        if (connectionManager) {
-            const validationResult = await connectionManager.validateDocumentFunctionality();
+        if (window.connectionManager) {
+            const validationResult = await window.connectionManager.validateDocumentFunctionality();
             if (!validationResult.success) {
                 uiManager.showToast(validationResult.message, 'error');
                 this.showTroubleshootingSteps();
@@ -170,11 +163,11 @@ class DocumentsManager {
      * Show troubleshooting steps for document issues
      */
     showTroubleshootingSteps() {
-        if (!connectionManager) {
+        if (!window.connectionManager) {
             return;
         }
         
-        const steps = connectionManager.getTroubleshootingSteps('documents');
+        const steps = window.connectionManager.getTroubleshootingSteps('documents');
         
         // Create a modal to display troubleshooting steps
         const modal = document.createElement('div');
@@ -209,19 +202,18 @@ class DocumentsManager {
      */
     async uploadFiles(files) {
         // Show progress container
-        this.uploadProgressContainer.style.display = 'block';
-        this.uploadStatus.textContent = 'Preparing files...';
-        this.uploadProgress.style.width = '0%';
+        this.uploadProgress.style.display = 'block';
+        this.uploadProgress.textContent = 'Preparing files...';
         
         // Check connection first
-        if (connectionManager && !connectionManager.isConnected) {
+        if (window.connectionManager && !window.connectionManager.isConnected) {
             try {
-                const connected = await connectionManager.checkConnection();
+                const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to Ollama server. Please check your connection.');
+                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
                 }
             } catch (error) {
-                this.uploadProgressContainer.style.display = 'none';
+                this.uploadProgress.style.display = 'none';
                 uiManager.showToast('Connection error: ' + error.message, 'error');
                 return;
             }
@@ -231,41 +223,31 @@ class DocumentsManager {
         
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            this.uploadStatus.textContent = `Uploading ${file.name} (${i + 1}/${files.length})...`;
+            this.uploadProgress.textContent = `Uploading ${file.name} (${i + 1}/${files.length})...`;
             
             try {
-                await ollamaAPI.uploadDocument(file, (progress) => {
-                    const percent = Math.round(progress.percent);
-                    this.uploadProgress.style.width = `${percent}%`;
-                    this.uploadStatus.textContent = `Uploading ${file.name} (${i + 1}/${files.length}): ${percent}%`;
-                });
+                await naviTechAidAPI.uploadDocument(file);
                 
                 uiManager.showToast(`Successfully uploaded ${file.name}`, 'success');
                 uploadSuccess = true;
                 
                 // Log successful upload to connection manager
-                if (connectionManager) {
-                    connectionManager.logConnectionEvent(`Document uploaded: ${file.name}`, 'success');
+                if (window.connectionManager) {
+                    window.connectionManager.logConnectionEvent(`Document uploaded: ${file.name}`, 'success');
                 }
             } catch (error) {
                 console.error('Error uploading file:', error);
                 uiManager.showToast(`Failed to upload ${file.name}: ${error.message}`, 'error');
                 
                 // Log error to connection manager
-                if (connectionManager) {
-                    connectionManager.logConnectionEvent(`Document upload error: ${error.message}`, 'error');
+                if (window.connectionManager) {
+                    window.connectionManager.logConnectionEvent(`Document upload error: ${error.message}`, 'error');
                 }
             }
         }
         
         // Hide progress container
-        this.uploadProgressContainer.style.display = 'none';
-        
-        // Hide the dialog
-        uiManager.hideDialog('upload-document-dialog');
-        
-        // Reset file input
-        this.fileInput.value = '';
+        this.uploadProgress.style.display = 'none';
         
         // Reload documents if at least one upload was successful
         if (uploadSuccess) {
@@ -279,16 +261,16 @@ class DocumentsManager {
     async loadDocuments() {
         try {
             // Check connection first
-            if (connectionManager && !connectionManager.isConnected) {
-                const connected = await connectionManager.checkConnection();
+            if (window.connectionManager && !window.connectionManager.isConnected) {
+                const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to Ollama server. Please check your connection.');
+                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
                 }
             }
             
             // Validate document functionality
-            if (connectionManager) {
-                const validationResult = await connectionManager.validateDocumentFunctionality();
+            if (window.connectionManager) {
+                const validationResult = await window.connectionManager.validateDocumentFunctionality();
                 if (!validationResult.success) {
                     throw new Error(validationResult.message);
                 }
@@ -296,40 +278,54 @@ class DocumentsManager {
             
             this.documentsList.innerHTML = '<div class="loading">Loading documents...</div>';
             
-            const documents = await ollamaAPI.listDocuments();
+            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/documents`);
             
-            if (!documents || documents.length === 0) {
-                this.documentsList.innerHTML = '<div class="empty-state">No documents available. Upload a document to get started.</div>';
-                return;
+            if (!response.ok) {
+                throw new Error(`Failed to load documents: ${response.status} ${response.statusText}`);
             }
             
-            // Clear the list
-            this.documentsList.innerHTML = '';
+            const data = await response.json();
+            this.documents = data.documents || [];
             
-            // Add documents to the list
-            documents.forEach(document => {
-                const documentCard = uiManager.createDocumentCard(document);
-                this.documentsList.appendChild(documentCard);
-            });
+            // Display documents
+            this.displayDocuments();
             
         } catch (error) {
             console.error('Error loading documents:', error);
-            
-            // Show error message with troubleshooting button
-            this.documentsList.innerHTML = `
-                <div class="error-state">
-                    <p>Failed to load documents: ${error.message}</p>
-                    <p>Click the "Troubleshoot" button for help resolving this issue.</p>
-                </div>
-            `;
-            
-            uiManager.showToast('Failed to load documents: ' + error.message, 'error');
-            
-            // Log error to connection manager
-            if (connectionManager) {
-                connectionManager.logConnectionEvent(`Document loading error: ${error.message}`, 'error');
-            }
+            this.displayDocumentsLoadingError(error.message);
         }
+    }
+    
+    /**
+     * Display documents
+     */
+    displayDocuments() {
+        if (!this.documents || this.documents.length === 0) {
+            this.documentsList.innerHTML = '<div class="empty-state">No documents available. Upload a document to get started.</div>';
+            return;
+        }
+        
+        // Clear the list
+        this.documentsList.innerHTML = '';
+        
+        // Add documents to the list
+        this.documents.forEach(document => {
+            const documentCard = uiManager.createDocumentCard(document);
+            this.documentsList.appendChild(documentCard);
+        });
+    }
+    
+    /**
+     * Display documents loading error
+     * @param {string} message - The error message
+     */
+    displayDocumentsLoadingError(message) {
+        this.documentsList.innerHTML = `
+            <div class="error-state">
+                <p>Failed to load documents: ${message}</p>
+                <p>Click the "Troubleshoot" button for help resolving this issue.</p>
+            </div>
+        `;
     }
     
     /**
@@ -339,10 +335,10 @@ class DocumentsManager {
     async viewDocument(documentId) {
         try {
             // Check connection first
-            if (connectionManager && !connectionManager.isConnected) {
-                const connected = await connectionManager.checkConnection();
+            if (window.connectionManager && !window.connectionManager.isConnected) {
+                const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to Ollama server. Please check your connection.');
+                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
                 }
             }
             
@@ -370,14 +366,14 @@ class DocumentsManager {
             });
             
             // Load document details
-            const document = await ollamaAPI.getDocument(documentId);
+            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/documents/${documentId}`);
             
-            // Load document sections and TOC
-            const [sections, toc, entities] = await Promise.all([
-                ollamaAPI.getDocumentSections(documentId).catch(() => []),
-                ollamaAPI.getDocumentTOC(documentId).catch(() => []),
-                ollamaAPI.getDocumentEntities(documentId).catch(() => [])
-            ]);
+            if (!response.ok) {
+                throw new Error(`Failed to load document details: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            const document = data.document || {};
             
             // Format file size
             const size = uiManager.formatFileSize(document.filesize || 0);
@@ -390,8 +386,7 @@ class DocumentsManager {
             dialogBody.innerHTML = `
                 <div class="document-tabs">
                     <button class="tab-button active" data-tab="overview">Overview</button>
-                    <button class="tab-button" data-tab="toc">Table of Contents</button>
-                    <button class="tab-button" data-tab="entities">Entities</button>
+                    <button class="tab-button" data-tab="content">Content</button>
                 </div>
                 
                 <div class="tab-content active" id="overview-tab">
@@ -437,27 +432,9 @@ class DocumentsManager {
                     </div>
                 </div>
                 
-                <div class="tab-content" id="toc-tab">
-                    <div class="document-toc">
-                        ${toc && toc.length > 0 
-                            ? `<ul class="toc-list">${toc.map(item => 
-                                `<li class="toc-item level-${item.level || 1}">
-                                    <a href="#" class="toc-link" data-section="${item.index}">${item.title}</a>
-                                </li>`).join('')}</ul>` 
-                            : '<div class="empty-state">No table of contents available for this document.</div>'}
-                    </div>
-                </div>
-                
-                <div class="tab-content" id="entities-tab">
-                    <div class="document-entities">
-                        ${entities && entities.length > 0 
-                            ? `<div class="entities-list">${entities.map(entity => 
-                                `<div class="entity-item">
-                                    <div class="entity-type">${entity.type}</div>
-                                    <div class="entity-value">${entity.value}</div>
-                                    ${entity.count ? `<div class="entity-count">${entity.count} occurrences</div>` : ''}
-                                </div>`).join('')}</div>` 
-                            : '<div class="empty-state">No entities extracted from this document.</div>'}
+                <div class="tab-content" id="content-tab">
+                    <div class="document-content">
+                        ${document.content || 'No content available.'}
                     </div>
                 </div>
             `;
@@ -479,53 +456,13 @@ class DocumentsManager {
                 });
             });
             
-            // Add section viewing functionality
-            const tocLinks = dialogBody.querySelectorAll('.toc-link');
-            tocLinks.forEach(link => {
-                link.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    const sectionIndex = link.dataset.section;
-                    
-                    try {
-                        const section = await ollamaAPI.getDocumentSection(documentId, sectionIndex);
-                        
-                        // Create section view
-                        const sectionModal = document.createElement('div');
-                        sectionModal.className = 'dialog active';
-                        
-                        sectionModal.innerHTML = `
-                            <div class="dialog-content">
-                                <div class="dialog-header">
-                                    <h3>${section.title || 'Section Content'}</h3>
-                                    <button class="close-dialog">&times;</button>
-                                </div>
-                                <div class="dialog-body">
-                                    <div class="section-content">${section.content || 'No content available.'}</div>
-                                </div>
-                            </div>
-                        `;
-                        
-                        document.body.appendChild(sectionModal);
-                        
-                        // Close button functionality
-                        sectionModal.querySelector('.close-dialog').addEventListener('click', () => {
-                            sectionModal.remove();
-                        });
-                        
-                    } catch (error) {
-                        console.error('Error loading section:', error);
-                        uiManager.showToast('Failed to load section content', 'error');
-                    }
-                });
-            });
-            
         } catch (error) {
             console.error('Error viewing document:', error);
             uiManager.showToast('Failed to load document details: ' + error.message, 'error');
             
             // Log error to connection manager
-            if (connectionManager) {
-                connectionManager.logConnectionEvent(`Document view error: ${error.message}`, 'error');
+            if (window.connectionManager) {
+                window.connectionManager.logConnectionEvent(`Document view error: ${error.message}`, 'error');
             }
         }
     }
@@ -580,19 +517,26 @@ class DocumentsManager {
     async deleteDocument(documentId) {
         try {
             // Check connection first
-            if (connectionManager && !connectionManager.isConnected) {
-                const connected = await connectionManager.checkConnection();
+            if (window.connectionManager && !window.connectionManager.isConnected) {
+                const connected = await window.connectionManager.checkConnection();
                 if (!connected) {
-                    throw new Error('Not connected to Ollama server. Please check your connection.');
+                    throw new Error('Not connected to NaviTechAid server. Please check your connection.');
                 }
             }
             
-            await ollamaAPI.deleteDocument(documentId);
+            const response = await fetch(`${naviTechAidAPI.baseUrl}/api/documents/${documentId}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to delete document: ${response.status} ${response.statusText}`);
+            }
+            
             uiManager.showToast('Document deleted successfully', 'success');
             
             // Log to connection manager
-            if (connectionManager) {
-                connectionManager.logConnectionEvent(`Document deleted: ${documentId}`, 'info');
+            if (window.connectionManager) {
+                window.connectionManager.logConnectionEvent(`Document deleted: ${documentId}`, 'info');
             }
             
             // Reload documents
@@ -602,8 +546,8 @@ class DocumentsManager {
             uiManager.showToast('Failed to delete document: ' + error.message, 'error');
             
             // Log error to connection manager
-            if (connectionManager) {
-                connectionManager.logConnectionEvent(`Document deletion error: ${error.message}`, 'error');
+            if (window.connectionManager) {
+                window.connectionManager.logConnectionEvent(`Document deletion error: ${error.message}`, 'error');
             }
         }
     }
