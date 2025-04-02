@@ -3,6 +3,7 @@
  */
 class ConnectionManager {
     constructor() {
+        // Get all connection status elements
         this.connectionStatus = document.getElementById('connection-status');
         this.connectionIndicator = document.getElementById('connection-indicator');
         this.reconnectBtn = document.getElementById('reconnect-btn');
@@ -31,11 +32,12 @@ class ConnectionManager {
         }
         
         // Set up connection details button
-        if (this.connectionDetailsBtn) {
-            this.connectionDetailsBtn.addEventListener('click', () => {
+        const detailsButtons = document.querySelectorAll('#connection-details-btn');
+        detailsButtons.forEach(button => {
+            button.addEventListener('click', () => {
                 this.showConnectionDetails();
             });
-        }
+        });
         
         // Set up connection details dialog close button
         document.querySelectorAll('.close-dialog').forEach(button => {
@@ -103,7 +105,7 @@ class ConnectionManager {
             }
             
             // Update UI to show checking status
-            this.updateConnectionStatus('checking');
+            this.updateConnectionStatus('checking', 'checking');
             
             // Try to fetch the list of models as a connection test
             const response = await fetch(`${apiHost}/api/tags`);
@@ -119,7 +121,7 @@ class ConnectionManager {
             
             // Connection successful
             this.isConnected = true;
-            this.updateConnectionStatus('connected');
+            this.updateConnectionStatus('connected', 'connected');
             this.logConnectionEvent(`Connected to NaviTechAid server at ${apiHost}`, 'success');
             
             // If user initiated and successful, also do a deep validation
@@ -135,7 +137,7 @@ class ConnectionManager {
         } catch (error) {
             // Connection failed
             this.isConnected = false;
-            this.updateConnectionStatus('disconnected');
+            this.updateConnectionStatus('disconnected', 'disconnected');
             
             const errorMessage = this.getConnectionErrorDetails(error);
             this.logConnectionEvent(`Connection failed: ${errorMessage}`, 'error');
@@ -150,32 +152,34 @@ class ConnectionManager {
     }
     
     /**
-     * Update the connection status in the UI
-     * @param {string} status - The connection status (checking, connected, disconnected)
+     * Update the connection status UI
+     * @param {string} status - Status text to display
+     * @param {string} state - Connection state (connected, disconnected, checking)
      */
-    updateConnectionStatus(status) {
-        if (!this.connectionStatus || !this.connectionIndicator) {
-            return;
+    updateConnectionStatus(status, state) {
+        // Update all connection status elements
+        const statusElements = document.querySelectorAll('#connection-status');
+        statusElements.forEach(element => {
+            if (element) {
+                element.textContent = status;
+            }
+        });
+        
+        // Update all connection indicators
+        const indicatorElements = document.querySelectorAll('.connection-indicator');
+        indicatorElements.forEach(element => {
+            if (element) {
+                element.className = 'connection-indicator ' + state;
+            }
+        });
+        
+        // Show/hide reconnect button based on connection state
+        if (this.reconnectBtn) {
+            this.reconnectBtn.style.display = state === 'connected' ? 'none' : 'inline-flex';
         }
         
-        // Remove all status classes
-        this.connectionIndicator.classList.remove('checking', 'connected', 'disconnected');
-        
-        // Add the current status class
-        this.connectionIndicator.classList.add(status);
-        
-        // Update the status text
-        switch (status) {
-            case 'checking':
-                this.connectionStatus.textContent = 'Checking connection...';
-                break;
-            case 'connected':
-                this.connectionStatus.textContent = 'Connected to NaviTechAid server';
-                break;
-            case 'disconnected':
-                this.connectionStatus.textContent = 'Disconnected from NaviTechAid server';
-                break;
-        }
+        // Log the connection status change
+        this.logConnectionEvent(state, status);
     }
     
     /**
@@ -576,7 +580,7 @@ class ConnectionManager {
             if (result.success) {
                 this.logConnectionEvent(`Server functionality validated successfully`, 'success');
                 this.isConnected = true;
-                this.updateConnectionStatus('connected');
+                this.updateConnectionStatus('connected', 'connected');
                 
                 if (userInitiated) {
                     uiManager.showToast('Server is fully operational', 'success');
@@ -585,7 +589,7 @@ class ConnectionManager {
                 // We have a connection but functionality is limited
                 this.logConnectionEvent(`Server connected but has limited functionality`, 'warning');
                 this.isConnected = true; // Still connected but with issues
-                this.updateConnectionStatus('connected');
+                this.updateConnectionStatus('connected', 'connected');
                 
                 // Create a detailed message about what's not working
                 let issues = [];
@@ -602,7 +606,7 @@ class ConnectionManager {
         } catch (error) {
             this.logConnectionEvent(`Validation failed: ${error.message}`, 'error');
             this.isConnected = false;
-            this.updateConnectionStatus('disconnected');
+            this.updateConnectionStatus('disconnected', 'disconnected');
             
             if (userInitiated) {
                 uiManager.showToast(`Server validation failed: ${error.message}`, 'error');

@@ -57,13 +57,14 @@ body {
 
 /* Sidebar Styles */
 .sidebar {
-    width: 240px;
+    width: 280px;
     background-color: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    z-index: 10;
 }
 
 .sidebar-header {
@@ -93,13 +94,6 @@ body {
 .sidebar-header .logo {
     height: 2rem;
     width: auto;
-}
-
-.header .logo h1 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
 }
 
 .sidebar-nav {
@@ -135,11 +129,78 @@ body {
     fill: currentColor;
 }
 
+/* Enhanced sidebar footer with connection controls and theme toggle */
 .sidebar-footer {
     padding: 1rem 1.5rem;
     border-top: 1px solid var(--border-color);
     font-size: 0.875rem;
     color: var(--text-tertiary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sidebar-footer .connection-status-container {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.sidebar-footer .button.mini {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.sidebar-footer .theme-toggle {
+    display: flex;
+    justify-content: center;
+    margin: 0.5rem 0;
+}
+
+.theme-toggle button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.theme-toggle button:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.theme-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.theme-icon.light {
+    display: none;
+}
+
+.theme-icon.dark {
+    display: block;
+}
+
+[data-theme="dark"] .theme-icon.light {
+    display: block;
+}
+
+[data-theme="dark"] .theme-icon.dark {
+    display: none;
+}
+
+.version {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-align: center;
 }
 
 /* Main Content Styles */
@@ -147,8 +208,50 @@ body {
     flex: 1;
     overflow: hidden;
     position: relative;
+    height: 100vh;
 }
 
+.connection-status-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.connection-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.connection-indicator.connected {
+    background-color: var(--success-color);
+}
+
+.connection-indicator.disconnected {
+    background-color: var(--error-color);
+}
+
+.connection-indicator.checking {
+    background-color: var(--warning-color);
+}
+
+.connection-status {
+    font-size: 0.875rem;
+}
+
+.connection-details-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Page Styles */
 .page {
     display: none;
     height: 100%;

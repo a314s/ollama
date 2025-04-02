@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3000;
+const PORT = 3001; // Changed port to 3001 to avoid conflict
 
 // MIME types for different file extensions
 const MIME_TYPES = {
@@ -30,15 +30,19 @@ if (!fs.existsSync(assetsDir)) {
 }
 
 // Create a simple logo SVG if it doesn't exist
-const logoPath = path.join(assetsDir, 'ollama-logo.svg');
+const logoPath = path.join(assetsDir, 'navi-logo.png');
 if (!fs.existsSync(logoPath)) {
-  const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-    <rect width="100" height="100" rx="20" fill="#4f46e5"/>
-    <path d="M30 30 L70 30 L70 70 L30 70 Z" stroke="white" stroke-width="6" fill="none"/>
-    <circle cx="50" cy="50" r="15" fill="white"/>
-  </svg>`;
-  fs.writeFileSync(logoPath, logoSvg);
-  console.log('Created logo SVG');
+  try {
+    const defaultLogo = path.join(__dirname, '..', '..', 'branding', 'navi_Logo-white-text.png');
+    if (fs.existsSync(defaultLogo)) {
+      fs.copyFileSync(defaultLogo, logoPath);
+      console.log('Copied logo from branding directory');
+    } else {
+      console.log('Logo not found in branding directory');
+    }
+  } catch (error) {
+    console.error('Error creating logo:', error);
+  }
 }
 
 // Create a simple favicon if it doesn't exist
@@ -110,6 +114,6 @@ const server = http.createServer((req, res) => {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`Ollama Web UI server running at http://localhost:${PORT}/`);
-  console.log(`Make sure your Ollama server is running at http://localhost:11434/`);
+  console.log(`NaviTechAid Web UI server running at http://localhost:${PORT}/`);
+  console.log(`Make sure your NaviTechAid server is running at http://localhost:11434/`);
 });

@@ -43,10 +43,18 @@ document.addEventListener('DOMContentLoaded', () => {
      * Set up navigation between pages
      */
     function setupNavigation() {
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
+        console.log("Setting up navigation...");
+        
+        // Set up sidebar navigation with direct event binding
+        const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+        console.log(`Found ${navItems.length} navigation items`);
+        
+        navItems.forEach(item => {
+            item.addEventListener('click', function(e) {
                 e.preventDefault();
-                const page = item.dataset.page;
+                const page = this.getAttribute('data-page');
+                console.log(`Navigation item clicked: ${page}`);
+                
                 if (page) {
                     uiManager.showPage(page);
                     
@@ -213,6 +221,130 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * UI Manager class for handling UI interactions
+ */
+class UIManager {
+    constructor() {
+        this.toastContainer = document.getElementById('toast-container');
+        this.toastTimeout = null;
+        this.toastDuration = 3000; // 3 seconds
+        
+        // Initialize theme
+        this.initTheme();
+    }
+    
+    /**
+     * Initialize theme based on user preference or system preference
+     */
+    initTheme() {
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        } else {
+            // Check for system preference
+            const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', prefersDarkMode ? 'dark' : 'light');
+        }
+        
+        // Set up theme toggle button
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                this.toggleTheme();
+            });
+        }
+    }
+    
+    /**
+     * Toggle between light and dark theme
+     */
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        
+        // Show toast notification
+        this.showToast(`Switched to ${newTheme} theme`, 'info');
+    }
+    
+    /**
+     * Show a toast notification
+     * @param {string} message - Message to display
+     * @param {string} type - Type of toast (success, error, info, warning)
+     */
+    showToast(message, type = 'info') {
+        if (!this.toastContainer) return;
+        
+        // Clear any existing toast
+        clearTimeout(this.toastTimeout);
+        this.toastContainer.innerHTML = '';
+        
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        
+        // Add close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-toast';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.addEventListener('click', () => {
+            toast.remove();
+        });
+        
+        toast.appendChild(closeBtn);
+        this.toastContainer.appendChild(toast);
+        
+        // Auto-remove after duration
+        this.toastTimeout = setTimeout(() => {
+            toast.classList.add('fade-out');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, this.toastDuration);
+    }
+    
+    /**
+     * Show a page
+     * @param {string} pageId - ID of the page element
+     */
+    showPage(pageId) {
+        console.log(`Showing page: ${pageId}`);
+        
+        // Remove active class from all pages
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active');
+        });
+        
+        // Remove active class from all sidebar navigation items
+        document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Add active class to the current page
+        const page = document.getElementById(`${pageId}-page`);
+        if (page) {
+            console.log(`Activating page: ${pageId}-page`);
+            page.classList.add('active');
+        } else {
+            console.error(`Page not found: ${pageId}-page`);
+        }
+        
+        // Add active class to the current sidebar navigation item
+        const navItem = document.querySelector(`.sidebar-nav .nav-item[data-page="${pageId}"]`);
+        if (navItem) {
+            console.log(`Activating nav item for: ${pageId}`);
+            navItem.classList.add('active');
+        } else {
+            console.error(`Navigation item not found for page: ${pageId}`);
+        }
+    }
+}
+
+/**
  * API class for interacting with the NaviTechAid server
  */
 class NaviTechAidAPI {
@@ -283,117 +415,6 @@ class NaviTechAidAPI {
         } catch (error) {
             console.error('Error generating response:', error);
             throw error;
-        }
-    }
-}
-
-/**
- * UI manager class for handling UI elements and interactions
- */
-class UIManager {
-    constructor() {
-        this.toastContainer = document.getElementById('toast-container');
-    }
-    
-    /**
-     * Show a toast notification
-     * @param {string} message - Toast message
-     * @param {string} type - Toast type (info, success, warning, error)
-     * @param {number} duration - Duration in milliseconds
-     */
-    showToast(message, type = 'info', duration = 3000) {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        
-        this.toastContainer.appendChild(toast);
-        
-        // Show toast
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 10);
-        
-        // Hide toast after duration
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                this.toastContainer.removeChild(toast);
-            }, 300);
-        }, duration);
-    }
-    
-    /**
-     * Show a dialog
-     * @param {string} dialogId - ID of the dialog element
-     */
-    showDialog(dialogId) {
-        const dialog = document.getElementById(dialogId);
-        if (dialog) {
-            dialog.classList.add('active');
-        }
-    }
-    
-    /**
-     * Hide a dialog
-     * @param {string} dialogId - ID of the dialog element
-     */
-    hideDialog(dialogId) {
-        const dialog = document.getElementById(dialogId);
-        if (dialog) {
-            dialog.classList.remove('active');
-        }
-    }
-    
-    /**
-     * Load settings from localStorage
-     */
-    loadSettings() {
-        const settings = localStorage.getItem('settings');
-        if (settings) {
-            try {
-                const parsedSettings = JSON.parse(settings);
-                
-                // Set API host input
-                const apiHostInput = document.getElementById('api-host');
-                if (apiHostInput && parsedSettings.apiHost) {
-                    apiHostInput.value = parsedSettings.apiHost;
-                }
-                
-                // Set other settings as needed
-                
-            } catch (error) {
-                console.error('Error parsing settings:', error);
-            }
-        }
-    }
-    
-    /**
-     * Save settings to localStorage
-     */
-    saveSettings() {
-        // Get API host value
-        const apiHostInput = document.getElementById('api-host');
-        const apiHost = apiHostInput ? apiHostInput.value.trim() : 'http://localhost:11434';
-        
-        // Create settings object
-        const settings = {
-            apiHost
-        };
-        
-        // Save to localStorage
-        localStorage.setItem('settings', JSON.stringify(settings));
-        
-        // Update API base URL
-        if (naviTechAidAPI) {
-            naviTechAidAPI.baseUrl = apiHost;
-        }
-        
-        // Show success toast
-        this.showToast('Settings saved successfully', 'success');
-        
-        // Check connection with new settings
-        if (connectionManager) {
-            connectionManager.checkConnection(true);
         }
     }
 }
