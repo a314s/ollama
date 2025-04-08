@@ -1,6 +1,8 @@
 package documents
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -11,11 +13,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/ollama/ollama/api"
+	"github.com/ollama/ollama/lmstudio/types"
 )
 
 // Processor handles document processing and storage
@@ -48,7 +51,7 @@ func (p *Processor) GetVectorStorePath() string {
 }
 
 // ProcessDocument processes a document and extracts its content and metadata
-func (p *Processor) ProcessDocument(ctx context.Context, filePath string) (*api.Document, error) {
+func (p *Processor) ProcessDocument(ctx context.Context, filePath string) (*types.Document, error) {
 	// Check if file exists
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
@@ -80,11 +83,12 @@ func (p *Processor) ProcessDocument(ctx context.Context, filePath string) (*api.
 	}
 	
 	// Create document object
-	document := &api.Document{
+	document := &types.Document{
 		ID:       docID,
-		Metadata: metadata,
-		Analysis: analysis,
-		Chunks:   chunks,
+		Metadata: metadata, 
+		Analysis: analysis, 
+		Chunks:   chunks,   
+		Path:     filePath, 
 	}
 	
 	// Store document
@@ -101,7 +105,7 @@ func (p *Processor) ProcessDocument(ctx context.Context, filePath string) (*api.
 }
 
 // GetDocument retrieves a document by ID
-func (p *Processor) GetDocument(ctx context.Context, docID string) (*api.Document, error) {
+func (p *Processor) GetDocument(ctx context.Context, docID string) (*types.Document, error) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	
@@ -119,7 +123,7 @@ func (p *Processor) GetDocument(ctx context.Context, docID string) (*api.Documen
 	}
 	
 	// Parse document
-	var doc api.Document
+	var doc types.Document
 	if err := json.Unmarshal(docBytes, &doc); err != nil {
 		return nil, fmt.Errorf("failed to parse document: %w", err)
 	}
@@ -128,11 +132,11 @@ func (p *Processor) GetDocument(ctx context.Context, docID string) (*api.Documen
 }
 
 // GetAllDocuments retrieves all documents
-func (p *Processor) GetAllDocuments(ctx context.Context) ([]*api.Document, error) {
+func (p *Processor) GetAllDocuments(ctx context.Context) ([]*types.Document, error) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	
-	var documents []*api.Document
+	var documents []*types.Document
 	
 	// List all document files
 	files, err := filepath.Glob(filepath.Join(p.docsPath, "*.json"))
@@ -150,7 +154,7 @@ func (p *Processor) GetAllDocuments(ctx context.Context) ([]*api.Document, error
 		}
 		
 		// Parse document
-		var doc api.Document
+		var doc types.Document
 		if err := json.Unmarshal(docBytes, &doc); err != nil {
 			// Skip failed document
 			continue
@@ -192,7 +196,7 @@ func (p *Processor) DeleteDocument(ctx context.Context, docID string) error {
 }
 
 // SearchDocuments searches for documents matching a query
-func (p *Processor) SearchDocuments(ctx context.Context, query string, limit int) ([]*api.DocumentMatch, error) {
+func (p *Processor) SearchDocuments(ctx context.Context, query string, limit int, topics []string) ([]*types.DocumentMatch, error) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	
@@ -202,47 +206,178 @@ func (p *Processor) SearchDocuments(ctx context.Context, query string, limit int
 		return nil, fmt.Errorf("failed to get documents: %w", err)
 	}
 	
-	// Generate query embedding
-	queryEmbedding := generateEmbedding(query)
-	
-	// Search through document chunks
-	var matches []*api.DocumentMatch
-	
-	for _, doc := range documents {
-		// Get document embeddings
-		embeddings, err := p.getDocumentEmbeddings(doc.ID)
-		if err != nil {
-			// Skip this document
-			continue
+	// Filter documents by topics if provided
+	if len(topics) > 0 {
+		topicMap := make(map[string]bool)
+		for _, topic := range topics {
+			topicMap[strings.ToLower(topic)] = true
 		}
+
+		filteredDocs := []*types.Document{}
+		for _, doc := range documents {
+			if doc.Analysis != nil { 
+				for _, docTopic := range doc.Analysis.Topics {
+					if topicMap[strings.ToLower(docTopic.Name)] { 
+						filteredDocs = append(filteredDocs, doc)
+						break 
+					}
+				}
+			}
+		}
+		documents = filteredDocs
+	}
+
+	var matches []*types.DocumentMatch
+
+	// Perform semantic search if query is provided
+	if query != "" {
+		// Generate query embedding
+		queryEmbedding := generateEmbedding(query)
 		
-		// Check each chunk
-		for i, chunk := range doc.Chunks {
-			if i >= len(embeddings) {
-				break
+		// Search through document chunks
+		var matches []*types.DocumentMatch
+		
+		// Track which documents we've already matched to avoid duplicates
+		matchedDocIds := make(map[string]bool)
+		
+		// Check for exact keyword matches in document titles and content
+		lowercaseQuery := strings.ToLower(query)
+		queryWords := strings.Fields(lowercaseQuery)
+		
+		for _, doc := range documents {
+			docAlreadyMatched := false
+			
+			// Get document embeddings
+			embeddings, err := p.getDocumentEmbeddings(doc.ID)
+			if err != nil {
+				// Skip this document
+				continue
 			}
 			
-			// Calculate similarity
-			similarity := cosineSimilarity(queryEmbedding, embeddings[i])
+			// Calculate title match score
+			titleMatchScore := 0.0
+			if doc.Metadata.Filename != "" {
+				lowercaseTitle := strings.ToLower(doc.Metadata.Filename)
+				for _, word := range queryWords {
+					if strings.Contains(lowercaseTitle, word) {
+						titleMatchScore += 0.2 
+					}
+				}
+			}
 			
-			// Add to results if similarity is high enough
-			if similarity > 0.5 {
-				match := &api.DocumentMatch{
-					DocumentID:   doc.ID,
-					ChunkID:      chunk.ID,
-					ChunkIndex:   i,
-					Content:      chunk.Content,
-					Similarity:   similarity,
-					DocumentName: doc.Metadata.Filename,
+			// Check document topics for matches (keyword matching)
+			topicMatchScore := 0.0
+			if doc.Analysis != nil && len(doc.Analysis.Topics) > 0 {
+				for _, topic := range doc.Analysis.Topics {
+					topicLower := strings.ToLower(topic.Name)
+					for _, word := range queryWords {
+						if strings.Contains(topicLower, word) || strings.Contains(word, topicLower) {
+							topicMatchScore += 0.15 
+							break
+						}
+					}
+				}
+			}
+			
+			// Check each chunk
+			for i, chunk := range doc.Chunks {
+				if i >= len(embeddings) {
+					break
 				}
 				
-				matches = append(matches, match)
+				// Calculate semantic similarity
+				semanticScore := cosineSimilarity(queryEmbedding, embeddings[i])
+				
+				// Calculate keyword match score
+				keywordScore := 0.0
+				if chunk.Content != "" {
+					lowercaseContent := strings.ToLower(chunk.Content)
+					
+					// Check for exact phrase match (higher score)
+					if strings.Contains(lowercaseContent, lowercaseQuery) {
+						keywordScore += 0.3
+					} else {
+						// Check for individual word matches
+						matchCount := 0
+						for _, word := range queryWords {
+							if len(word) > 2 && strings.Contains(lowercaseContent, word) {
+								matchCount++
+							}
+						}
+						
+						if matchCount > 0 {
+							keywordScore += float64(matchCount) / float64(len(queryWords)) * 0.2
+						}
+					}
+				}
+				
+				// Final score combines semantic, keyword, title, and topic matches
+				combinedScore := semanticScore*0.6 + keywordScore + titleMatchScore + topicMatchScore
+				
+				// Use a dynamic threshold based on query length
+				threshold := 0.4
+				if len(queryWords) > 3 {
+					threshold = 0.3 
+				}
+				
+				// Add to results if combined score is high enough
+				if combinedScore > threshold {
+					// Create preview with highlighted match
+					preview := generateMatchPreview(chunk.Content, lowercaseQuery, queryWords)
+					
+					match := &types.DocumentMatch{
+						DocumentID:   doc.ID,
+						ChunkID:      chunk.ID,
+						ChunkIndex:   i,
+						Content:      preview,            
+						RawContent:   chunk.Content,      
+						Similarity:   combinedScore,      
+						DocumentName: doc.Metadata.Filename,
+						Metadata: &types.SearchResultMetadata{
+							FileType:      doc.Metadata.Filetype,
+							SemanticScore: &semanticScore,      
+							KeywordScore:  &keywordScore,       
+							TopicScore:    &topicMatchScore,    
+							TitleScore:    &titleMatchScore,    
+						},
+					}
+					
+					matches = append(matches, match)
+					
+					if !docAlreadyMatched {
+						matchedDocIds[doc.ID] = true
+						docAlreadyMatched = true
+					}
+				}
 			}
 		}
 	}
 	
 	// Sort matches by similarity (highest first)
-	sortMatches(matches)
+	sort.SliceStable(matches, func(i, j int) bool {
+		return matches[i].Similarity > matches[j].Similarity
+	})
+	
+	// Add document topic information to each match
+	for _, match := range matches {
+		for _, doc := range documents {
+			if doc.ID == match.DocumentID && doc.Analysis != nil {
+				if match.Metadata != nil {
+					topicCount := min(len(doc.Analysis.Topics), 5)
+					match.Metadata.TopicList = make([]string, topicCount)
+					for i := 0; i < topicCount; i++ {
+						match.Metadata.TopicList[i] = doc.Analysis.Topics[i].Name 
+					}
+				}
+				break
+			}
+		}
+	}
+	
+	// Ensure diversity: re-rank to avoid too many chunks from the same document
+	if len(matches) > 5 {
+		matches = diversifyResults(matches)
+	}
 	
 	// Limit results
 	if limit > 0 && len(matches) > limit {
@@ -252,9 +387,95 @@ func (p *Processor) SearchDocuments(ctx context.Context, query string, limit int
 	return matches, nil
 }
 
+// generateMatchPreview creates a context snippet around the matching text
+func generateMatchPreview(content, queryLower string, queryWords []string) string {
+	if content == "" {
+		return ""
+	}
+	
+	matchPos := strings.Index(strings.ToLower(content), queryLower)
+	
+	if matchPos == -1 {
+		for _, word := range queryWords {
+			if len(word) > 2 { 
+				matchPos = strings.Index(strings.ToLower(content), word)
+				if matchPos != -1 {
+					break
+				}
+			}
+		}
+	}
+	
+	if matchPos == -1 {
+		if len(content) <= 200 {
+			return content
+		}
+		return content[:200] + "..."
+	}
+	
+	start := matchPos - 100
+	if start < 0 {
+		start = 0
+	}
+	
+	end := matchPos + 150
+	if end > len(content) {
+		end = len(content)
+	}
+	
+	prefix := ""
+	if start > 0 {
+		prefix = "..."
+	}
+	
+	suffix := ""
+	if end < len(content) {
+		suffix = "..."
+	}
+	
+	return prefix + content[start:end] + suffix
+}
+
+// diversifyResults ensures results have diversity by promoting chunks from different documents
+func diversifyResults(matches []*types.DocumentMatch) []*types.DocumentMatch {
+	if len(matches) <= 1 {
+		return matches
+	}
+	
+	includedDocs := make(map[string]int)
+	
+	result := make([]*types.DocumentMatch, 0, len(matches))
+	
+	for _, match := range matches {
+		if count, exists := includedDocs[match.DocumentID]; !exists || count < 1 {
+			result = append(result, match)
+			includedDocs[match.DocumentID] = includedDocs[match.DocumentID] + 1
+		}
+	}
+	
+	for _, match := range matches {
+		alreadyIncluded := false
+		for _, included := range result {
+			if match.ChunkID == included.ChunkID {
+				alreadyIncluded = true
+				break
+			}
+		}
+		
+		if !alreadyIncluded && len(result) < len(matches) {
+			result = append(result, match)
+		}
+		
+		if len(result) >= len(matches) {
+			break
+		}
+	}
+	
+	return result
+}
+
 // sortMatches sorts matches by similarity in descending order
-func sortMatches(matches []*api.DocumentMatch) {
-	// Simple bubble sort for now, can be optimized later
+func sortMatches(matches []*types.DocumentMatch) {
 	for i := 0; i < len(matches); i++ {
 		for j := i + 1; j < len(matches); j++ {
 			if matches[i].Similarity < matches[j].Similarity {
@@ -265,17 +486,15 @@ func sortMatches(matches []*api.DocumentMatch) {
 }
 
 // storeDocument saves a document to disk
-func (p *Processor) storeDocument(doc *api.Document) error {
+func (p *Processor) storeDocument(doc *types.Document) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	
-	// Convert document to JSON
 	docJSON, err := json.Marshal(doc)
 	if err != nil {
 		return fmt.Errorf("failed to encode document: %w", err)
 	}
 	
-	// Save document
 	docPath := filepath.Join(p.docsPath, doc.ID+".json")
 	if err := os.WriteFile(docPath, docJSON, 0644); err != nil {
 		return fmt.Errorf("failed to save document: %w", err)
@@ -285,25 +504,22 @@ func (p *Processor) storeDocument(doc *api.Document) error {
 }
 
 // generateAndStoreEmbeddings generates and stores embeddings for a document
-func (p *Processor) generateAndStoreEmbeddings(doc *api.Document) error {
+func (p *Processor) generateAndStoreEmbeddings(doc *types.Document) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	
 	var embeddings [][]float64
 	
-	// Generate embeddings for each chunk
 	for _, chunk := range doc.Chunks {
 		embedding := generateEmbedding(chunk.Content)
 		embeddings = append(embeddings, embedding)
 	}
 	
-	// Encode embeddings
 	embeddingsJSON, err := json.Marshal(embeddings)
 	if err != nil {
 		return fmt.Errorf("failed to encode embeddings: %w", err)
 	}
 	
-	// Save embeddings
 	embeddingsPath := filepath.Join(p.vectorStorePath, doc.ID+".embeddings")
 	if err := os.WriteFile(embeddingsPath, embeddingsJSON, 0644); err != nil {
 		return fmt.Errorf("failed to save embeddings: %w", err)
@@ -316,18 +532,15 @@ func (p *Processor) generateAndStoreEmbeddings(doc *api.Document) error {
 func (p *Processor) getDocumentEmbeddings(docID string) ([][]float64, error) {
 	embeddingsPath := filepath.Join(p.vectorStorePath, docID+".embeddings")
 	
-	// Check if embeddings exist
 	if _, err := os.Stat(embeddingsPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("embeddings not found for document: %s", docID)
 	}
 	
-	// Read embeddings
 	embeddingsBytes, err := os.ReadFile(embeddingsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read embeddings: %w", err)
 	}
 	
-	// Parse embeddings
 	var embeddings [][]float64
 	if err := json.Unmarshal(embeddingsBytes, &embeddings); err != nil {
 		return nil, fmt.Errorf("failed to parse embeddings: %w", err)
@@ -338,41 +551,35 @@ func (p *Processor) getDocumentEmbeddings(docID string) ([][]float64, error) {
 
 // generateDocumentID generates a unique ID for a document
 func generateDocumentID(content []byte) string {
-	// Create SHA-256 hash
 	hash := sha256.Sum256(content)
-	return fmt.Sprintf("%x", hash)[:16] // Use first 16 chars of the hex hash
+	return fmt.Sprintf("%x", hash)[:16] 
 }
 
 // extractMetadata extracts metadata from a file
-func extractMetadata(filePath string, fileInfo os.FileInfo, content []byte) *api.DocumentMetadata {
-	// Get basic file info
+func extractMetadata(filePath string, fileInfo os.FileInfo, content []byte) *types.DocumentMetadata {
 	filename := filepath.Base(filePath)
 	fileExt := strings.ToLower(filepath.Ext(filePath))
 	fileSize := fileInfo.Size()
 	modTime := fileInfo.ModTime()
 	
-	// Determine file type
 	fileType := determineFileType(fileExt)
 	
-	// Extract word count
 	wordCount := countWords(string(content))
 	
-	// Estimate page count (very rough estimate: ~250 words per page)
 	estimatedPages := int(math.Ceil(float64(wordCount) / 250.0))
 	
-	// Generate summary (first few sentences, up to 200 chars)
 	summary := generateSummary(string(content), 200)
 	
-	return &api.DocumentMetadata{
+	return &types.DocumentMetadata{
 		Filename:       filename,
 		Filetype:       fileType,
-		FileSize:       fileSize,
+		Filesize:       fileSize,
 		OriginalPath:   filePath,
 		UploadDate:     time.Now(),
-		ModifiedDate:   modTime,
+		LastModifiedDate: modTime,
 		WordCount:      wordCount,
-		EstimatedPages: estimatedPages,
-		Summary:        summary,
+		PageCount:      estimatedPages,
+		ContentSummary: summary,
 	}
 }
 
@@ -408,10 +615,8 @@ func countWords(text string) int {
 
 // generateSummary generates a brief summary of the document
 func generateSummary(text string, maxLength int) string {
-	// Split into sentences (simple approach)
 	sentences := splitSentences(text)
 	
-	// Use the first few sentences as summary
 	var summary strings.Builder
 	for _, sentence := range sentences {
 		if summary.Len()+len(sentence)+1 > maxLength {
@@ -421,7 +626,6 @@ func generateSummary(text string, maxLength int) string {
 		summary.WriteString(" ")
 	}
 	
-	// Trim and ensure it doesn't exceed max length
 	result := strings.TrimSpace(summary.String())
 	if len(result) > maxLength {
 		result = result[:maxLength]
@@ -432,15 +636,12 @@ func generateSummary(text string, maxLength int) string {
 
 // splitSentences splits text into sentences (simple implementation)
 func splitSentences(text string) []string {
-	// Replace common abbreviations to prevent false sentence breaks
 	text = regexp.MustCompile(`(Mr\.|Mrs\.|Dr\.|etc\.|i\.e\.|e\.g\.)`).ReplaceAllStringFunc(text, func(m string) string {
 		return strings.ReplaceAll(m, ".", "<DOT>")
 	})
 	
-	// Split on sentence endings
 	parts := regexp.MustCompile(`[.!?]+`).Split(text, -1)
 	
-	// Restore dots and clean up
 	var sentences []string
 	for _, part := range parts {
 		if strings.TrimSpace(part) == "" {
@@ -454,70 +655,82 @@ func splitSentences(text string) []string {
 }
 
 // analyzeDocument performs comprehensive document analysis
-func analyzeDocument(text string) (*api.DocumentAnalysis, error) {
-	// Extract sections
-	sections := extractSections(text)
-	
-	// Generate table of contents
-	toc := generateTableOfContents(sections)
-	
-	// Extract entities
-	entities := extractEntities(text)
-	
-	// Extract topics
-	topics := extractTopics(text)
-	
-	return &api.DocumentAnalysis{
+func analyzeDocument(text string) (*types.DocumentAnalysis, error) {
+	sectionsPtrs := extractSections(text)
+	tocPtrs := generateTableOfContents(sectionsPtrs)
+	entitiesMap := extractEntities(text)
+	topicsStrings := extractTopics(text)
+
+	// Convert slices of pointers/maps to slices of values for DocumentAnalysis
+	sections := make([]types.DocumentSection, len(sectionsPtrs))
+	for i, ptr := range sectionsPtrs {
+		sections[i] = *ptr
+	}
+	toc := make([]types.TOCEntry, len(tocPtrs))
+	for i, ptr := range tocPtrs {
+		toc[i] = *ptr
+	}
+	entities := make([]types.DocumentEntity, 0)
+	for _, entitySlice := range entitiesMap {
+		entities = append(entities, entitySlice...)
+	}
+	topics := make([]types.DocumentTopic, len(topicsStrings))
+	for i, topicStr := range topicsStrings {
+		topics[i] = types.DocumentTopic{Name: topicStr, Weight: 0} // Use Name, assuming default weight
+	}
+
+	return &types.DocumentAnalysis{
+		ID:              "", // Should be set by caller
 		Sections:        sections,
 		TableOfContents: toc,
 		Entities:        entities,
 		Topics:          topics,
+		AnalyzedAt:      time.Now(),
+		WordCount:       0, // TODO: Calculate word count during analysis
+		PageCount:       0, // TODO: Calculate page count during analysis
 	}, nil
 }
 
-// extractSections extracts sections from document text
-func extractSections(text string) []*api.DocumentSection {
-	var sections []*api.DocumentSection
+// extractSections extracts sections from the document text
+func extractSections(text string) []*types.DocumentSection {
+	var sections []*types.DocumentSection
 	
-	// Split by markdown-style headings
 	headingPattern := regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
 	matches := headingPattern.FindAllStringSubmatchIndex(text, -1)
 	
 	if len(matches) == 0 {
-		// No headings found, treat the whole document as one section
-		sections = append(sections, &api.DocumentSection{
-			ID:      fmt.Sprintf("section-%d", 0),
-			Index:   0,
-			Heading: "",
-			Level:   0,
-			Content: text,
+		sections = append(sections, &types.DocumentSection{
+			Index:         0,
+			Heading:       "",
+			HeadingLevel:  0,
+			Content:       text,
+			StartPosition: 0,
+			Length:        len(text),
 		})
 		return sections
 	}
 	
-	// Process each section
 	for i, match := range matches {
 		level := len(text[match[2]:match[3]])
 		heading := text[match[4]:match[5]]
 		
-		// Determine section content
 		var content string
-		startPos := match[1] // End of the heading line
+		startPos := match[1] 
 		endPos := len(text)
 		
 		if i < len(matches)-1 {
-			endPos = matches[i+1][0] // Start of the next heading
+			endPos = matches[i+1][0] 
 		}
 		
 		content = text[startPos:endPos]
 		
-		// Create section
-		section := &api.DocumentSection{
-			ID:      fmt.Sprintf("section-%d", i),
-			Index:   i,
-			Heading: heading,
-			Level:   level,
-			Content: strings.TrimSpace(content),
+		section := &types.DocumentSection{
+			Index:         i,
+			Heading:       heading,
+			HeadingLevel:  level,
+			Content:       strings.TrimSpace(content),
+			StartPosition: startPos,
+			Length:        endPos - startPos,
 		}
 		
 		sections = append(sections, section)
@@ -527,15 +740,14 @@ func extractSections(text string) []*api.DocumentSection {
 }
 
 // generateTableOfContents generates TOC from sections
-func generateTableOfContents(sections []*api.DocumentSection) []*api.TOCEntry {
-	var toc []*api.TOCEntry
+func generateTableOfContents(sections []*types.DocumentSection) []*types.TOCEntry {
+	var toc []*types.TOCEntry
 	
 	for i, section := range sections {
-		entry := &api.TOCEntry{
+		entry := &types.TOCEntry{
 			Title:        section.Heading,
-			Level:        section.Level,
-			SectionID:    section.ID,
-			SectionIndex: i,
+			Level:        section.HeadingLevel,
+			Position:     section.StartPosition, // Use StartPosition
 		}
 		
 		toc = append(toc, entry)
@@ -545,18 +757,18 @@ func generateTableOfContents(sections []*api.DocumentSection) []*api.TOCEntry {
 }
 
 // extractEntities extracts entities from text
-func extractEntities(text string) map[string][]api.Entity {
-	entities := make(map[string][]api.Entity)
+func extractEntities(text string) map[string][]types.DocumentEntity {
+	entities := make(map[string][]types.DocumentEntity)
 	
-	// Extract emails
 	emailPattern := regexp.MustCompile(`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b`)
 	emailMatches := emailPattern.FindAllString(text, -1)
 	
-	var emails []api.Entity
+	var emails []types.DocumentEntity
 	for _, match := range emailMatches {
-		emails = append(emails, api.Entity{
-			Text: match,
-			Type: "email",
+		emails = append(emails, types.DocumentEntity{
+			Type:     "email",
+			Value:    match, // Corrected: Use Value
+			Position: 0, // TODO: Find actual position
 		})
 	}
 	
@@ -564,15 +776,15 @@ func extractEntities(text string) map[string][]api.Entity {
 		entities["emails"] = emails
 	}
 	
-	// Extract URLs
 	urlPattern := regexp.MustCompile(`https?://[^\s]+`)
 	urlMatches := urlPattern.FindAllString(text, -1)
 	
-	var urls []api.Entity
+	var urls []types.DocumentEntity
 	for _, match := range urlMatches {
-		urls = append(urls, api.Entity{
-			Text: match,
-			Type: "url",
+		urls = append(urls, types.DocumentEntity{
+			Type:     "url",
+			Value:    match, // Corrected: Use Value
+			Position: 0, // TODO: Find actual position
 		})
 	}
 	
@@ -580,15 +792,15 @@ func extractEntities(text string) map[string][]api.Entity {
 		entities["urls"] = urls
 	}
 	
-	// Extract dates (simple pattern)
 	datePattern := regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b`)
 	dateMatches := datePattern.FindAllString(text, -1)
 	
-	var dates []api.Entity
+	var dates []types.DocumentEntity
 	for _, match := range dateMatches {
-		dates = append(dates, api.Entity{
-			Text: match,
-			Type: "date",
+		dates = append(dates, types.DocumentEntity{
+			Type:     "date",
+			Value:    match, // Corrected: Use Value
+			Position: 0, // TODO: Find actual position
 		})
 	}
 	
@@ -601,10 +813,8 @@ func extractEntities(text string) map[string][]api.Entity {
 
 // extractTopics extracts main topics from the document
 func extractTopics(text string) []string {
-	// Get all words
 	words := strings.Fields(text)
 	
-	// Count word frequencies (excluding common words)
 	wordCounts := make(map[string]int)
 	commonWords := map[string]bool{
 		"the": true, "and": true, "a": true, "to": true, "of": true,
@@ -626,20 +836,13 @@ func extractTopics(text string) []string {
 		wordCounts[word]++
 	}
 	
-	// Find the most frequent words
-	type wordFreq struct {
-		word  string
-		count int
-	}
-	
 	var wordFreqs []wordFreq
 	for word, count := range wordCounts {
-		if count >= 3 { // Only consider words that appear at least 3 times
+		if count >= 3 { 
 			wordFreqs = append(wordFreqs, wordFreq{word, count})
 		}
 	}
 	
-	// Sort by frequency (descending)
 	for i := 0; i < len(wordFreqs); i++ {
 		for j := i + 1; j < len(wordFreqs); j++ {
 			if wordFreqs[i].count < wordFreqs[j].count {
@@ -648,7 +851,6 @@ func extractTopics(text string) []string {
 		}
 	}
 	
-	// Take top N words as topics
 	var topics []string
 	maxTopics := 10
 	for i := 0; i < len(wordFreqs) && i < maxTopics; i++ {
@@ -659,29 +861,24 @@ func extractTopics(text string) []string {
 }
 
 // generateChunks splits document into chunks for searching
-func generateChunks(docID string, text string) ([]*api.DocumentChunk, error) {
-	var chunks []*api.DocumentChunk
+func generateChunks(docID string, text string) ([]*types.DocumentChunk, error) {
+	var chunks []*types.DocumentChunk
 	
-	// Parameters for chunking
-	chunkSize := 1000 // characters
+	chunkSize := 1000 
 	chunkOverlap := 200
 	
-	// Split into chunks with overlap
 	textLen := len(text)
 	
 	for start := 0; start < textLen; start += chunkSize - chunkOverlap {
-		// Calculate end position
 		end := start + chunkSize
 		if end > textLen {
 			end = textLen
 		}
 		
-		// Extract chunk content
 		chunkContent := text[start:end]
 		
-		// Create chunk
 		chunkID := fmt.Sprintf("%s-chunk-%d", docID, len(chunks))
-		chunk := &api.DocumentChunk{
+		chunk := &types.DocumentChunk{
 			ID:       chunkID,
 			DocID:    docID,
 			Index:    len(chunks),
@@ -692,7 +889,6 @@ func generateChunks(docID string, text string) ([]*api.DocumentChunk, error) {
 		
 		chunks = append(chunks, chunk)
 		
-		// If we reached the end of the text, stop
 		if end >= textLen {
 			break
 		}
@@ -703,32 +899,25 @@ func generateChunks(docID string, text string) ([]*api.DocumentChunk, error) {
 
 // generateEmbedding generates a vector embedding for a text using hash-based approach
 func generateEmbedding(text string) []float64 {
-	// Normalize text
 	text = strings.ToLower(text)
 	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 	
-	// Hash the text
 	hash := sha256.New()
 	io.WriteString(hash, text)
 	hashBytes := hash.Sum(nil)
 	
-	// Convert hash to embedding vector (128 dimensions)
 	dimensions := 128
 	embedding := make([]float64, dimensions)
 	
-	// Use hash bytes to generate vector values
 	for i := 0; i < dimensions; i++ {
-		// Use modulo to get a value from hash
 		hashIndex := i % len(hashBytes)
 		
-		// Convert byte to float between -1 and 1
 		value := float64(hashBytes[hashIndex])/128.0 - 1.0
 		
 		embedding[i] = value
 	}
 	
-	// Normalize vector to unit length
 	embedding = normalizeVector(embedding)
 	
 	return embedding
@@ -736,19 +925,16 @@ func generateEmbedding(text string) []float64 {
 
 // normalizeVector normalizes a vector to unit length
 func normalizeVector(vector []float64) []float64 {
-	// Calculate magnitude
 	var sumSquares float64
 	for _, v := range vector {
 		sumSquares += v * v
 	}
 	magnitude := math.Sqrt(sumSquares)
 	
-	// Avoid division by zero
 	if magnitude == 0 {
 		return vector
 	}
 	
-	// Normalize
 	normalized := make([]float64, len(vector))
 	for i, v := range vector {
 		normalized[i] = v / magnitude
@@ -779,4 +965,16 @@ func cosineSimilarity(a, b []float64) float64 {
 	}
 	
 	return dotProduct / (magnitudeA * magnitudeB)
+}
+
+type wordFreq struct {
+	word  string
+	count int
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

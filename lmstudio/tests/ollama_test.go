@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ollama/ollama/lmstudio/api"
+	"github.com/ollama/ollama/lmstudio/status"
 )
 
 // OllamaTestRunner tests the Ollama integration
@@ -25,13 +26,13 @@ func NewOllamaTestRunner(baseURL string) *OllamaTestRunner {
 }
 
 // Run runs the Ollama test
-func (r *OllamaTestRunner) Run(ctx context.Context) (*api.TestResult, error) {
+func (r *OllamaTestRunner) Run(ctx context.Context) (*status.TestResult, error) {
 	startTime := time.Now()
 	testID := "ollama_connectivity"
 	testName := "Ollama Connectivity Test"
 
 	// Create a test result
-	result := &api.TestResult{
+	result := &status.TestResult{
 		ID:       testID,
 		Name:     testName,
 		Status:   "running",

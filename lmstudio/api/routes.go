@@ -13,8 +13,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/documents"
-	"github.com/ollama/ollama/status"
+	"github.com/ollama/ollama/lmstudio/documents"
+	"github.com/ollama/ollama/lmstudio/status"
+	"github.com/ollama/ollama/lmstudio/types"
 )
 
 // RegisterRoutes adds the LMStudio API routes to the given router
@@ -25,9 +26,9 @@ func RegisterRoutes(router *gin.Engine) {
 	router.GET("/api/huggingface/models/:model", GetHuggingFaceModel)
 	
 	// Status routes
-	router.GET("/api/status", GetSystemStatus)
+	router.GET("/api/status", GetStatus)
 	router.GET("/api/status/tests", RunTests)
-	router.POST("/api/status/fix", FixComponent)
+	router.POST("/api/status/fix", FixIssue)
 	
 	// Document routes
 	router.GET("/api/documents", ListDocuments)
@@ -65,20 +66,19 @@ func GetHuggingFaceModel(c *gin.Context) {
 	})
 }
 
-// GetSystemStatus returns the current system status
-func GetSystemStatus(c *gin.Context) {
+// GetStatus retrieves the overall system status
+func GetStatus(c *gin.Context) {
 	statusTracker := status.GetTracker()
-	systemStatus := statusTracker.GetSystemStatus(c.Request.Context())
-	
-	c.JSON(http.StatusOK, systemStatus)
+	currentStatus := statusTracker.GetSystemStatus()
+	c.JSON(http.StatusOK, currentStatus)
 }
 
-// RunTests runs system tests
+// RunTests initiates system tests
 func RunTests(c *gin.Context) {
 	testID := c.Query("test_id")
 	statusTracker := status.GetTracker()
 	
-	var results []*api.TestResult
+	var results []*status.TestResult
 	var err error
 	
 	if testID != "" {
@@ -90,13 +90,13 @@ func RunTests(c *gin.Context) {
 			})
 			return
 		}
-		results = []*api.TestResult{result}
+		results = []*status.TestResult{result}
 	} else {
 		// Run all tests
 		results, err = statusTracker.RunAllTests(c.Request.Context())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": fmt.Sprintf("Failed to run tests: %v", err),
+				"error": fmt.Sprintf("Failed to run all tests: %v", err),
 			})
 			return
 		}
@@ -105,45 +105,24 @@ func RunTests(c *gin.Context) {
 	c.JSON(http.StatusOK, results)
 }
 
-// FixComponent attempts to fix a component
-func FixComponent(c *gin.Context) {
-	var request struct {
-		ComponentID string `json:"component_id"`
-	}
-	
-	if err := c.BindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("Invalid request: %v", err),
-		})
+// FixIssue attempts to fix a reported system issue
+func FixIssue(c *gin.Context) {
+	var req api.FixRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
 		return
 	}
-	
+
 	statusTracker := status.GetTracker()
-	success, actions, err := statusTracker.FixComponent(c.Request.Context(), request.ComponentID)
-	
+	fixResponse, err := statusTracker.FixIssue(c.Request.Context(), req.ComponentID, req.TestID, req.Force)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": fmt.Sprintf("Failed to fix component: %v", err),
+			"error": fmt.Sprintf("Failed to apply fix: %v", err),
 		})
 		return
 	}
-	
-	result := &api.FixResult{
-		Success:   success,
-		Message:   getFixResultMessage(success),
-		Actions:   actions,
-		Component: request.ComponentID,
-	}
-	
-	c.JSON(http.StatusOK, result)
-}
 
-// getFixResultMessage returns a message for the fix result
-func getFixResultMessage(success bool) string {
-	if success {
-		return "Component fixed successfully"
-	}
-	return "Component fix partially succeeded or failed"
+	c.JSON(http.StatusOK, fixResponse)
 }
 
 // DocumentProcessor returns the document processor
@@ -173,7 +152,12 @@ func ListDocuments(c *gin.Context) {
 		return
 	}
 	
-	c.JSON(http.StatusOK, docs)
+	metadataList := make([]types.DocumentMetadata, len(docs))
+	for i, doc := range docs {
+		metadataList[i] = doc.Metadata
+	}
+	
+	c.JSON(http.StatusOK, metadataList)
 }
 
 // GetDocument returns a specific document

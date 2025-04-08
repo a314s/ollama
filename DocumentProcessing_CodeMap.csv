@@ -1,0 +1,87 @@
+# Ollama Document Processing Module Code Map
+# ==========================================
+# This document maps the components of the document processing module within the main Ollama project.
+# This module resides primarily within the 'lmstudio' directory but integrates with the core Ollama system.
+# It provides functionality for ingesting, analyzing, and searching documents alongside Ollama models.
+
+# API Types
+Type,DocumentMatch,lmstudio/api/types.go,github.com/ollama/ollama/api,Represents a search result for a document,None,Struct,1.2.0,Stable,Yes,"None","Fields: DocumentID, ChunkID, Similarity, Title, Content, RawContent, ChunkIndex, Metadata"
+Type,DocumentMetadata,lmstudio/api/types.go,github.com/ollama/ollama/api,Stores metadata for a document,None,Struct,1.0.0,Stable,Yes,"None","Fields: Filename, FileType, FileSize, OriginalPath, UploadDate, LastModified, WordCount, EstimatedPages, ContentSummary"
+Type,Document,lmstudio/api/types.go,github.com/ollama/ollama/api,Represents a document in the system,None,Struct,1.0.0,Stable,Yes,"None","Fields: ID, Title, Content, Metadata, Analysis, Chunks"
+Type,DocumentAnalysis,lmstudio/api/types.go,github.com/ollama/ollama/api,Stores analysis data for a document,None,Struct,1.1.0,Stable,Yes,"None","Fields: ID, Topics, Sections, TableOfContents, Entities, AnalyzedAt"
+Type,SearchResultMetadata,lmstudio/api/types.go,github.com/ollama/ollama/api,Contains metadata about a search result,None,Struct,1.2.0,Stable,Yes,"None","Fields: SemanticScore, KeywordScore, TitleScore, TopicScore, TopicList, MatchContext"
+
+# Document Processor Functions
+Function,NewProcessor,lmstudio/documents/processor.go,github.com/ollama/ollama/documents,Creates a new document processor,os,*Processor,1.0.0,Stable,Yes,"LMSTUDIO_DOCS_PATH, LMSTUDIO_VECTORS_PATH","Parameters: docDir, vectorDir"
+Function,ProcessDocument,lmstudio/documents/processor.go,github.com/ollama/ollama/documents,Processes a document and generates embeddings,os/filepath,*api.Document,1.0.0,Stable,Yes,"MAX_CHUNK_SIZE, CHUNK_OVERLAP","Parameters: ctx, filePath"
+Function,SearchDocuments,lmstudio/documents/processor.go,github.com/ollama/ollama/documents,Searches for documents based on a query,strings,[]api.DocumentMatch,1.2.0,Stable,Yes,"MIN_SIMILARITY_THRESHOLD, MAX_RESULTS, ENABLE_HYBRID_SEARCH","Parameters: ctx, query, limit"
+Function,GetDocument,lmstudio/documents/processor.go,github.com/ollama/ollama/documents,Retrieves a document by ID,None,*api.Document,1.0.0,Stable,Yes,"None","Parameters: ctx, docID"
+Function,DeleteDocument,lmstudio/documents/processor.go,github.com/ollama/ollama/documents,Deletes a document by ID,os,error,1.0.0,Stable,Yes,"None","Parameters: ctx, docID"
+Function,UpdateDocument,lmstudio/documents/processor.go,github.com/ollama/ollama/documents,Updates a document,json,error,1.0.0,Stable,Yes,"None","Parameters: ctx, doc"
+
+# API Routes
+Function,RegisterRoutes,lmstudio/api/routes.go,github.com/ollama/ollama/api,Registers API routes with the router,gin,None,1.0.0,Stable,No,"None","Parameters: router"
+Function,ListDocuments,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to list all documents,None,None,1.0.0,Stable,No,"None","Parameters: c"
+Function,GetDocument,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to get a document,None,None,1.0.0,Stable,No,"None","Parameters: c"
+Function,UploadDocument,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to upload a document,io,None,1.0.0,Stable,No,"MAX_UPLOAD_SIZE","Parameters: c"
+Function,DeleteDocument,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to delete a document,None,None,1.0.0,Stable,No,"None","Parameters: c"
+Function,SearchDocuments,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to search documents,strconv,None,1.2.0,Stable,No,"DEFAULT_SEARCH_LIMIT","Parameters: c"
+Function,OpenDocument,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to open a document,os/exec,None,1.1.0,Stable,No,"None","Parameters: c"
+Function,GetDocumentSections,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to get document sections,None,None,1.1.0,Stable,No,"None","Parameters: c"
+Function,GetDocumentTOC,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to get document table of contents,None,None,1.1.0,Stable,No,"None","Parameters: c"
+Function,GetDocumentEntities,lmstudio/api/routes.go,github.com/ollama/ollama/api,API endpoint to get document entities,None,None,1.1.0,Stable,No,"None","Parameters: c"
+
+# UI JavaScript Functions
+Function,searchDocuments,lmstudio/ui/documents/js/documents.js,N/A,Performs a search and displays results,API call,Promise,1.2.0,Stable,No,"DEFAULT_SEARCH_LIMIT","Parameters: query, limit"
+Function,displaySearchResults,lmstudio/ui/documents/js/documents.js,N/A,Displays search results in the UI,None,None,1.2.0,Stable,No,"SHOW_SCORE_DETAILS, HIGHLIGHT_MATCHES","Parameters: results"
+Function,highlightSearchTerms,lmstudio/ui/documents/js/documents.js,N/A,Highlights search terms in results,None,String,1.2.0,Stable,No,"HIGHLIGHT_CLASS","Parameters: text, query"
+Function,sortResults,lmstudio/ui/documents/js/documents.js,N/A,Sorts search results by criteria,None,Array,1.2.0,Stable,No,"DEFAULT_SORT_BY","Parameters: results, sortBy"
+Function,filterResults,lmstudio/ui/documents/js/documents.js,N/A,Filters search results by criteria,None,Array,1.2.0,Stable,No,"FILTER_OPTIONS","Parameters: results, filters"
+
+# Vector Store Functions
+Function,getEmbedding,lmstudio/documents/vectorStore.js,N/A,Generates an embedding for text using hash-based method,crypto,Array,1.0.0,Stable,No,"EMBEDDING_DIMENSION","Parameters: text"
+Function,storeEmbedding,lmstudio/documents/vectorStore.js,N/A,Stores an embedding for a document chunk,fs,Promise,1.0.0,Stable,No,"VECTOR_STORAGE_FORMAT","Parameters: documentId, chunkId, embedding"
+Function,cosineSimilarity,lmstudio/documents/vectorStore.js,N/A,Calculates cosine similarity between embeddings,None,Number,1.0.0,Stable,No,"None","Parameters: embedding1, embedding2"
+Function,findSimilarDocuments,lmstudio/documents/vectorStore.js,N/A,Finds documents similar to an embedding,None,Array,1.0.0,Stable,No,"MIN_SIMILARITY_THRESHOLD","Parameters: queryEmbedding, limit"
+
+# Document Analyzer Functions
+Function,analyzeDocument,lmstudio/documents/documentAnalyzer.js,N/A,Analyzes a document for structure and content,None,Object,1.1.0,Stable,No,"ANALYZER_TIMEOUT_MS","Parameters: document"
+Function,extractSections,lmstudio/documents/documentAnalyzer.js,N/A,Extracts sections from a document,None,Array,1.1.0,Stable,No,"MIN_SECTION_LENGTH","Parameters: content"
+Function,extractEntities,lmstudio/documents/documentAnalyzer.js,N/A,Extracts entities from a document,None,Array,1.1.0,Stable,No,"ENTITY_TYPES","Parameters: content"
+Function,generateTableOfContents,lmstudio/documents/documentAnalyzer.js,N/A,Generates a table of contents for a document,None,Array,1.1.0,Stable,No,"TOC_MAX_DEPTH","Parameters: sections"
+Function,extractTopics,lmstudio/documents/documentAnalyzer.js,N/A,Extracts topics from a document,None,Array,1.1.0,Stable,No,"MAX_TOPICS","Parameters: content"
+
+# Test Functions
+Function,TestEnhancedSearch,lmstudio/tests/search_processor_test.go,github.com/ollama/ollama/tests,Tests the enhanced search functionality,testing,None,1.2.0,Development,N/A,"None","Parameters: t"
+Function,createTestDocuments,lmstudio/tests/search_processor_test.go,github.com/ollama/ollama/tests,Creates test documents for testing,os,None,1.2.0,Development,N/A,"None","Parameters: t, docDir"
+Function,processTestDocuments,lmstudio/tests/search_processor_test.go,github.com/ollama/ollama/tests,Processes test documents for testing,context,None,1.2.0,Development,N/A,"None","Parameters: t, processor, docDir"
+
+# UI Components
+Component,DocumentSearchBar,lmstudio/ui/documents/index.html,N/A,Search bar for document search,searchDocuments(),None,1.0.0,Stable,No,"SEARCH_PLACEHOLDER_TEXT","Search input with button"
+Component,SearchResultsList,lmstudio/ui/documents/index.html,N/A,List of search results,displaySearchResults(),None,1.2.0,Stable,No,"RESULT_LIST_MAX_HEIGHT","Scrollable list with result cards"
+Component,DocumentInfoCard,lmstudio/ui/documents/index.html,N/A,Card displaying document information,None,None,1.0.0,Stable,No,"SHOW_DOCUMENT_PREVIEW","Card with document metadata and preview"
+Component,FilterPanel,lmstudio/ui/documents/index.html,N/A,Panel for filtering search results,filterResults(),None,1.2.0,Stable,No,"DEFAULT_FILTERS","Sidebar with filter options"
+Component,SortDropdown,lmstudio/ui/documents/index.html,N/A,Dropdown for sorting results,sortResults(),None,1.2.0,Stable,No,"SORT_OPTIONS","Dropdown with sorting options"
+Component,DocumentUploader,lmstudio/ui/documents/index.html,N/A,Component for uploading documents,None,None,1.0.0,Stable,No,"ALLOWED_FILE_TYPES, MAX_FILE_SIZE","File input with drag and drop"
+Component,DocumentViewer,lmstudio/ui/documents/viewer.html,N/A,Page for viewing document details,None,None,1.1.0,Stable,No,"VIEWER_FEATURES","Page with document content and navigation"
+Component,TableOfContentsNav,lmstudio/ui/documents/viewer.html,N/A,Navigation for document TOC,None,None,1.1.0,Stable,No,"TOC_COLLAPSE_THRESHOLD","Sidebar with clickable TOC entries"
+
+# Environment Variables and Configuration
+Config,LMSTUDIO_DOCS_PATH,environment variable,N/A,Path to store documents,N/A,String,1.0.0,Required,N/A,"Default: ./data/documents","Base directory for document storage"
+Config,LMSTUDIO_VECTORS_PATH,environment variable,N/A,Path to store vector embeddings,N/A,String,1.0.0,Required,N/A,"Default: ./data/vectors","Base directory for vector storage"
+Config,MAX_CHUNK_SIZE,config.js,N/A,Maximum size of document chunks,N/A,Number,1.0.0,Optional,N/A,"Default: 1000","Character count limit for document chunks"
+Config,CHUNK_OVERLAP,config.js,N/A,Overlap between consecutive chunks,N/A,Number,1.0.0,Optional,N/A,"Default: 200","Character overlap between chunks"
+Config,MIN_SIMILARITY_THRESHOLD,config.js,N/A,Minimum similarity score for search results,N/A,Number,1.0.0,Optional,N/A,"Default: 0.3","Threshold for semantic search"
+Config,MAX_RESULTS,config.js,N/A,Maximum number of search results,N/A,Number,1.0.0,Optional,N/A,"Default: 20","Limit for search results"
+Config,ENABLE_HYBRID_SEARCH,config.js,N/A,Enable hybrid search (semantic + keyword),N/A,Boolean,1.2.0,Optional,N/A,"Default: true","Toggle for hybrid search"
+Config,HIGHLIGHT_MATCHES,config.js,N/A,Highlight matched terms in results,N/A,Boolean,1.2.0,Optional,N/A,"Default: true","Toggle for highlighting"
+Config,ANALYZER_TIMEOUT_MS,config.js,N/A,Timeout for document analysis,N/A,Number,1.1.0,Optional,N/A,"Default: 30000","Milliseconds before timing out analysis"
+
+# Import Path Inconsistencies
+Note,Import Path Issue,Multiple files,N/A,There's a mismatch between filesystem structure and import paths,N/A,N/A,N/A,Issues,N/A,N/A,"The filesystem has documents under lmstudio/documents but imports use github.com/ollama/ollama/documents"
+
+# Version History
+Version,1.0.0,N/A,N/A,Initial release of the document processing module,N/A,N/A,N/A,Released,N/A,N/A,"Basic document upload, processing, and retrieval"
+Version,1.1.0,N/A,N/A,Added document analysis features to the module,N/A,N/A,N/A,Released,N/A,N/A,"Document sections, TOC, entities extraction"
+Version,1.2.0,N/A,N/A,Enhanced search functionality within the module,N/A,N/A,N/A,Current,N/A,N/A,"Hybrid search, improved UI, advanced result filtering"
+Version,1.3.0,N/A,N/A,Planned - Integration with external AI models via Ollama core,N/A,N/A,N/A,Planned,N/A,N/A,"AI-assisted document analysis and search capabilities leveraging Ollama models"

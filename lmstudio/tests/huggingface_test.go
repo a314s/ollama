@@ -31,13 +31,13 @@ func NewHuggingFaceTestRunner(baseURL string, cachePath string) *HuggingFaceTest
 }
 
 // Run runs the Hugging Face test
-func (r *HuggingFaceTestRunner) Run(ctx context.Context) (*api.TestResult, error) {
+func (r *HuggingFaceTestRunner) Run(ctx context.Context) (*status.TestResult, error) {
 	startTime := time.Now()
 	testID := "huggingface_connectivity"
 	testName := "Hugging Face Connectivity Test"
 
 	// Create a test result
-	result := &api.TestResult{
+	result := &status.TestResult{
 		ID:       testID,
 		Name:     testName,
 		Status:   "running",

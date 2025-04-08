@@ -24,13 +24,13 @@ func NewAPITestRunner(baseURL string) *APITestRunner {
 }
 
 // Run runs the API test
-func (r *APITestRunner) Run(ctx context.Context) (*api.TestResult, error) {
+func (r *APITestRunner) Run(ctx context.Context) (*status.TestResult, error) {
 	startTime := time.Now()
 	testID := "api_connectivity"
 	testName := "API Connectivity Test"
 
 	// Create a test result
-	result := &api.TestResult{
+	result := &status.TestResult{
 		ID:       testID,
 		Name:     testName,
 		Status:   "running",

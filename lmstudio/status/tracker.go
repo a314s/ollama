@@ -8,17 +8,15 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/ollama/ollama/lmstudio/api"
 )
 
 // Tracker tracks the status of system components
 type Tracker struct {
 	// Components is a map of component IDs to their status
-	Components map[string]*api.ComponentStatus
+	Components map[string]*ComponentStatus
 
 	// Tests is a map of test IDs to their results
-	Tests map[string]*api.TestResult
+	Tests map[string]*TestResult
 
 	// StatusFilePath is the path to the status file
 	StatusFilePath string
@@ -42,7 +40,7 @@ type Fixer interface {
 // TestRunner defines an interface for running tests
 type TestRunner interface {
 	// Run runs a test
-	Run(ctx context.Context) (*api.TestResult, error)
+	Run(ctx context.Context) (*TestResult, error)
 }
 
 // NewTracker creates a new status tracker
@@ -55,8 +53,8 @@ func NewTracker(dataDir string) (*Tracker, error) {
 	}
 
 	tracker := &Tracker{
-		Components:    make(map[string]*api.ComponentStatus),
-		Tests:         make(map[string]*api.TestResult),
+		Components:    make(map[string]*ComponentStatus),
+		Tests:         make(map[string]*TestResult),
 		StatusFilePath: statusFilePath,
 		Fixers:        make(map[string]Fixer),
 		TestRunners:   make(map[string]TestRunner),
@@ -86,8 +84,8 @@ func (t *Tracker) loadStatus() error {
 
 	// Parse the status file
 	var status struct {
-		Components map[string]*api.ComponentStatus `json:"components"`
-		Tests      map[string]*api.TestResult      `json:"tests"`
+		Components map[string]*ComponentStatus `json:"components"`
+		Tests      map[string]*TestResult      `json:"tests"`
 	}
 
 	if err := json.Unmarshal(data, &status); err != nil {
@@ -108,8 +106,8 @@ func (t *Tracker) saveStatus() error {
 	// Create the status data
 	t.Mutex.RLock()
 	status := struct {
-		Components map[string]*api.ComponentStatus `json:"components"`
-		Tests      map[string]*api.TestResult      `json:"tests"`
+		Components map[string]*ComponentStatus `json:"components"`
+		Tests      map[string]*TestResult      `json:"tests"`
 	}{
 		Components: t.Components,
 		Tests:      t.Tests,
@@ -139,28 +137,28 @@ func (t *Tracker) initializeDefaults() {
 	defer t.Mutex.Unlock()
 
 	// Core components
-	t.Components["api"] = &api.ComponentStatus{
+	t.Components["api"] = &ComponentStatus{
 		Name:        "API Server",
 		Status:      "unknown",
 		Message:     "Status not yet checked",
 		LastChecked: now,
 	}
 
-	t.Components["ollama"] = &api.ComponentStatus{
+	t.Components["ollama"] = &ComponentStatus{
 		Name:        "Ollama Integration",
 		Status:      "unknown",
 		Message:     "Status not yet checked",
 		LastChecked: now,
 	}
 
-	t.Components["huggingface"] = &api.ComponentStatus{
+	t.Components["huggingface"] = &ComponentStatus{
 		Name:        "Hugging Face Integration",
 		Status:      "unknown",
 		Message:     "Status not yet checked",
 		LastChecked: now,
 	}
 
-	t.Components["documents"] = &api.ComponentStatus{
+	t.Components["documents"] = &ComponentStatus{
 		Name:        "Document Processing",
 		Status:      "unknown",
 		Message:     "Status not yet checked",
@@ -168,7 +166,7 @@ func (t *Tracker) initializeDefaults() {
 	}
 
 	// Initialize default tests
-	t.Tests["api_connectivity"] = &api.TestResult{
+	t.Tests["api_connectivity"] = &TestResult{
 		ID:           "api_connectivity",
 		Name:         "API Connectivity Test",
 		Status:       "not_run",
@@ -178,7 +176,7 @@ func (t *Tracker) initializeDefaults() {
 		RunAt:        now,
 	}
 
-	t.Tests["ollama_connectivity"] = &api.TestResult{
+	t.Tests["ollama_connectivity"] = &TestResult{
 		ID:           "ollama_connectivity",
 		Name:         "Ollama Connectivity Test",
 		Status:       "not_run",
@@ -188,7 +186,7 @@ func (t *Tracker) initializeDefaults() {
 		RunAt:        now,
 	}
 
-	t.Tests["huggingface_connectivity"] = &api.TestResult{
+	t.Tests["huggingface_connectivity"] = &TestResult{
 		ID:           "huggingface_connectivity",
 		Name:         "Hugging Face Connectivity Test",
 		Status:       "not_run",
@@ -198,7 +196,7 @@ func (t *Tracker) initializeDefaults() {
 		RunAt:        now,
 	}
 
-	t.Tests["document_processing"] = &api.TestResult{
+	t.Tests["document_processing"] = &TestResult{
 		ID:           "document_processing",
 		Name:         "Document Processing Test",
 		Status:       "not_run",
@@ -229,40 +227,33 @@ func (t *Tracker) RegisterTestRunner(testID string, runner TestRunner) {
 }
 
 // GetSystemStatus returns the current system status
-func (t *Tracker) GetSystemStatus() *api.SystemStatus {
+func (t *Tracker) GetSystemStatus() *SystemStatus {
 	t.Mutex.RLock()
 	defer t.Mutex.RUnlock()
 
 	// Calculate overall status
 	status := "operational"
-	for _, comp := range t.Components {
-		if comp.Status == "offline" {
-			status = "offline"
-			break
-		} else if comp.Status == "degraded" {
+	components := make(map[string]ComponentStatus, len(t.Components))
+	for id, comp := range t.Components {
+		components[id] = *comp // Dereference pointer
+		if comp.Status != "operational" {
 			status = "degraded"
 		}
 	}
 
-	// Create the system status
-	systemStatus := &api.SystemStatus{
+	// Make a copy of the test results slice
+	tests := make([]*TestResult, 0, len(t.Tests)) // Changed to []*TestResult
+	for _, test := range t.Tests {
+		testCopy := *test // Create a copy of the test result
+		tests = append(tests, &testCopy) // Append address of the copy
+	}
+
+	return &SystemStatus{
 		Status:     status,
-		Components: make(map[string]api.ComponentStatus),
-		Tests:      make([]api.TestResult, 0, len(t.Tests)),
+		Components: components,
+		Tests:      tests,
 		UpdatedAt:  time.Now(),
 	}
-
-	// Copy components
-	for id, comp := range t.Components {
-		systemStatus.Components[id] = *comp
-	}
-
-	// Copy tests
-	for _, test := range t.Tests {
-		systemStatus.Tests = append(systemStatus.Tests, *test)
-	}
-
-	return systemStatus
 }
 
 // UpdateComponentStatus updates the status of a component
@@ -286,7 +277,7 @@ func (t *Tracker) UpdateComponentStatus(id string, status string, message string
 }
 
 // UpdateTestResult updates the result of a test
-func (t *Tracker) UpdateTestResult(result *api.TestResult) error {
+func (t *Tracker) UpdateTestResult(result *TestResult) error {
 	t.Mutex.Lock()
 	defer t.Mutex.Unlock()
 
@@ -304,7 +295,7 @@ func (t *Tracker) UpdateTestResult(result *api.TestResult) error {
 }
 
 // RunTest runs a specific test
-func (t *Tracker) RunTest(ctx context.Context, id string) (*api.TestResult, error) {
+func (t *Tracker) RunTest(ctx context.Context, id string) (*TestResult, error) {
 	// Check if the test exists and has a runner
 	t.Mutex.RLock()
 	test, exists := t.Tests[id]
@@ -325,7 +316,7 @@ func (t *Tracker) RunTest(ctx context.Context, id string) (*api.TestResult, erro
 	result, err := runner.Run(ctx)
 	if err != nil {
 		// Update the test result with the error
-		result = &api.TestResult{
+		result = &TestResult{
 			ID:           id,
 			Name:         test.Name,
 			Status:       "failed",
@@ -346,7 +337,7 @@ func (t *Tracker) RunTest(ctx context.Context, id string) (*api.TestResult, erro
 }
 
 // RunAllTests runs all registered tests
-func (t *Tracker) RunAllTests(ctx context.Context) ([]*api.TestResult, error) {
+func (t *Tracker) RunAllTests(ctx context.Context) ([]*TestResult, error) {
 	// Get all test IDs
 	t.Mutex.RLock()
 	testIDs := make([]string, 0, len(t.Tests))
@@ -356,7 +347,7 @@ func (t *Tracker) RunAllTests(ctx context.Context) ([]*api.TestResult, error) {
 	t.Mutex.RUnlock()
 
 	// Run all tests
-	results := make([]*api.TestResult, 0, len(testIDs))
+	results := make([]*TestResult, 0, len(testIDs))
 	for _, id := range testIDs {
 		result, err := t.RunTest(ctx, id)
 		if err != nil {
@@ -370,7 +361,7 @@ func (t *Tracker) RunAllTests(ctx context.Context) ([]*api.TestResult, error) {
 }
 
 // FixComponent attempts to fix a component
-func (t *Tracker) FixComponent(ctx context.Context, id string, force bool) (*api.FixResponse, error) {
+func (t *Tracker) FixComponent(ctx context.Context, id string, force bool) (*FixResponse, error) {
 	// Check if the component exists and has a fixer
 	t.Mutex.RLock()
 	comp, exists := t.Components[id]
@@ -388,7 +379,7 @@ func (t *Tracker) FixComponent(ctx context.Context, id string, force bool) (*api
 
 	// Check if the component needs fixing
 	if comp.Status == "operational" && !force {
-		return &api.FixResponse{
+		return &FixResponse{
 			Success:   true,
 			Message:   "Component is already operational",
 			Actions:   []string{"No action taken"},
@@ -419,7 +410,7 @@ func (t *Tracker) FixComponent(ctx context.Context, id string, force bool) (*api
 	updatedComp := t.Components[id]
 	t.Mutex.RUnlock()
 
-	return &api.FixResponse{
+	return &FixResponse{
 		Success:   success,
 		Message:   message,
 		Actions:   actions,

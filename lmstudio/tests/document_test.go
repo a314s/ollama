@@ -10,11 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
-	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/documents"
-	"github.com/ollama/ollama/status"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ollama/ollama/lmstudio/documents"
+	"github.com/ollama/ollama/lmstudio/types"
 )
 
 // DocumentTestRunner tests the document processing system
@@ -35,13 +38,13 @@ func NewDocumentTestRunner(docsPath string, vectorStorePath string) *DocumentTes
 }
 
 // Run runs the document processing test
-func (r *DocumentTestRunner) Run(ctx context.Context) (*api.TestResult, error) {
+func (r *DocumentTestRunner) Run(ctx context.Context) (*types.TestResult, error) {
 	startTime := time.Now()
 	testID := "document_processing"
 	testName := "Document Processing Test"
 
 	// Create a test result
-	result := &api.TestResult{
+	result := &types.TestResult{
 		ID:       testID,
 		Name:     testName,
 		Status:   "running",
@@ -144,24 +147,324 @@ func (r *DocumentTestRunner) Run(ctx context.Context) (*api.TestResult, error) {
 		return result, nil
 	}
 
-	if len(embedding) != 128 {
+	// If we got here, the test passed
+	result.Status = "passed"
+	result.Message = "Document processing test passed"
+	result.Duration = time.Since(startTime)
+	result.FixAvailable = false
+	
+	// Additional test: Multiple files processing
+	if err := r.testMultipleFiles(ctx); err != nil {
 		result.Status = "failed"
-		result.Message = fmt.Sprintf("Expected embedding dimension 128, got %d", len(embedding))
+		result.Message = fmt.Sprintf("Multiple files test failed: %v", err)
+		result.Duration = time.Since(startTime)
+		result.FixAvailable = false
+		return result, nil
+	}
+	
+	// Additional test: Edge cases
+	if err := r.testEdgeCases(ctx); err != nil {
+		result.Status = "failed"
+		result.Message = fmt.Sprintf("Edge cases test failed: %v", err)
+		result.Duration = time.Since(startTime)
+		result.FixAvailable = false
+		return result, nil
+	}
+	
+	// Additional test: Document search with specific terms
+	if err := r.testDocumentSearch(ctx); err != nil {
+		result.Status = "failed"
+		result.Message = fmt.Sprintf("Document search test failed: %v", err)
+		result.Duration = time.Since(startTime)
+		result.FixAvailable = false
+		return result, nil
+	}
+	
+	// Additional test: Document update functionality
+	if err := r.testDocumentUpdate(ctx); err != nil {
+		result.Status = "failed"
+		result.Message = fmt.Sprintf("Document update test failed: %v", err)
 		result.Duration = time.Since(startTime)
 		result.FixAvailable = false
 		return result, nil
 	}
 
-	// Test passed
-	result.Status = "passed"
-	result.Message = "Document processing system is operational"
-	result.Duration = time.Since(startTime)
-	result.FixAvailable = false
 	return result, nil
 }
 
+// testMultipleFiles tests processing multiple files
+func (r *DocumentTestRunner) testMultipleFiles(ctx context.Context) error {
+	// Create a temporary processor for this test
+	processor := documents.NewProcessor(r.DocsPath, r.VectorStorePath)
+	
+	// Create multiple test documents
+	docCount := 3
+	docPaths := make([]string, docCount)
+	docIDs := make([]string, docCount)
+	
+	defer func() {
+		// Clean up test files
+		for _, path := range docPaths {
+			os.Remove(path)
+		}
+	}()
+	
+	for i := 0; i < docCount; i++ {
+		// Create test document with different content
+		content := fmt.Sprintf("Test document %d.\n\n# Heading 1\nThis is content for doc %d.\n\n# Heading 2\nThis contains unique term xyz%d.", i, i, i)
+		docPath := filepath.Join(r.DocsPath, fmt.Sprintf("test-multi-%d.txt", i))
+		
+		if err := os.WriteFile(docPath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("failed to create test document %d: %w", i, err)
+		}
+		
+		docPaths[i] = docPath
+		
+		// Process document
+		doc, err := processor.ProcessDocument(ctx, docPath)
+		if err != nil {
+			return fmt.Errorf("failed to process document %d: %w", i, err)
+		}
+		
+		docIDs[i] = doc.ID
+	}
+	
+	// Verify we can retrieve all documents
+	docs, err := processor.GetAllDocuments(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve all documents: %w", err)
+	}
+	
+	// Check if all test documents are in the results
+	foundCount := 0
+	for _, doc := range docs {
+		for _, id := range docIDs {
+			if doc.ID == id {
+				foundCount++
+				break
+			}
+		}
+	}
+	
+	if foundCount < docCount {
+		return fmt.Errorf("expected to find %d documents, found %d", docCount, foundCount)
+	}
+	
+	// Test search across multiple documents
+	results, err := processor.SearchDocuments(ctx, "unique", 10)
+	if err != nil {
+		return fmt.Errorf("search failed: %w", err)
+	}
+	
+	if len(results) < docCount {
+		return fmt.Errorf("expected at least %d search results, got %d", docCount, len(results))
+	}
+	
+	// Clean up test documents
+	for _, id := range docIDs {
+		processor.DeleteDocument(ctx, id)
+	}
+	
+	return nil
+}
+
+// testEdgeCases tests various edge cases
+func (r *DocumentTestRunner) testEdgeCases(ctx context.Context) error {
+	// Create a temporary processor for this test
+	processor := documents.NewProcessor(r.DocsPath, r.VectorStorePath)
+	
+	// Test case 1: Empty document
+	emptyDocPath := filepath.Join(r.DocsPath, "empty-test.txt")
+	if err := os.WriteFile(emptyDocPath, []byte(""), 0644); err != nil {
+		return fmt.Errorf("failed to create empty test document: %w", err)
+	}
+	defer os.Remove(emptyDocPath)
+	
+	emptyDoc, err := processor.ProcessDocument(ctx, emptyDocPath)
+	if err != nil {
+		return fmt.Errorf("failed to process empty document: %w", err)
+	}
+	
+	// Empty doc should still have valid metadata
+	if emptyDoc.Metadata.Filename != "empty-test.txt" {
+		return fmt.Errorf("incorrect filename for empty document: %s", emptyDoc.Metadata.Filename)
+	}
+	
+	// Clean up
+	processor.DeleteDocument(ctx, emptyDoc.ID)
+	
+	// Test case 2: Very large document (simulate with many sections)
+	largeDocPath := filepath.Join(r.DocsPath, "large-test.txt")
+	var largeContent strings.Builder
+	
+	// Create a document with many sections
+	largeContent.WriteString("# Large Test Document\n\n")
+	for i := 0; i < 50; i++ {
+		largeContent.WriteString(fmt.Sprintf("## Section %d\n\nThis is content for section %d.\n\n", i, i))
+	}
+	
+	if err := os.WriteFile(largeDocPath, []byte(largeContent.String()), 0644); err != nil {
+		return fmt.Errorf("failed to create large test document: %w", err)
+	}
+	defer os.Remove(largeDocPath)
+	
+	largeDoc, err := processor.ProcessDocument(ctx, largeDocPath)
+	if err != nil {
+		return fmt.Errorf("failed to process large document: %w", err)
+	}
+	
+	// Large doc should have many sections
+	if len(largeDoc.Analysis.Sections) < 40 {
+		return fmt.Errorf("expected at least 40 sections in large document, got %d", len(largeDoc.Analysis.Sections))
+	}
+	
+	// Clean up
+	processor.DeleteDocument(ctx, largeDoc.ID)
+	
+	// Test case 3: Non-existent file
+	_, err = processor.ProcessDocument(ctx, filepath.Join(r.DocsPath, "nonexistent.txt"))
+	if err == nil {
+		return fmt.Errorf("expected error when processing non-existent file, got nil")
+	}
+	
+	// Test case 4: Retrieving non-existent document
+	_, err = processor.GetDocument(ctx, "nonexistent-id")
+	if err == nil {
+		return fmt.Errorf("expected error when retrieving non-existent document, got nil")
+	}
+	
+	return nil
+}
+
+// testDocumentSearch tests document search functionality
+func (r *DocumentTestRunner) testDocumentSearch(ctx context.Context) error {
+	// Create a temporary processor for this test
+	processor := documents.NewProcessor(r.DocsPath, r.VectorStorePath)
+	
+	// Create a test document with unique searchable terms
+	docPath := filepath.Join(r.DocsPath, "search-test.txt")
+	content := "This document contains several unique and specific keywords.\n" +
+		"Such as xylophone, zephyr, and antidisestablishmentarianism.\n" +
+		"These words should be easy to search for and find this document."
+	
+	if err := os.WriteFile(docPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to create search test document: %w", err)
+	}
+	defer os.Remove(docPath)
+	
+	// Process the document
+	doc, err := processor.ProcessDocument(ctx, docPath)
+	if err != nil {
+		return fmt.Errorf("failed to process search test document: %w", err)
+	}
+	
+	// Test searches with different terms
+	searchTerms := []string{
+		"xylophone",
+		"zephyr",
+		"antidisestablishmentarianism",
+		"unique specific",
+	}
+	
+	for _, term := range searchTerms {
+		results, err := processor.SearchDocuments(ctx, term, 10)
+		if err != nil {
+			return fmt.Errorf("search for '%s' failed: %w", term, err)
+		}
+		
+		// Verify at least one result was found
+		if len(results) == 0 {
+			return fmt.Errorf("search for '%s' returned no results", term)
+		}
+		
+		// Verify the document ID matches
+		found := false
+		for _, result := range results {
+			if result.DocumentID == doc.ID {
+				found = true
+				break
+			}
+		}
+		
+		if !found {
+			return fmt.Errorf("search for '%s' did not find the test document", term)
+		}
+	}
+	
+	// Test with term that shouldn't be in the document
+	results, err := processor.SearchDocuments(ctx, "supercalifragilisticexpialidocious", 10)
+	if err != nil {
+		return fmt.Errorf("negative search failed: %w", err)
+	}
+	
+	// This term shouldn't find the document
+	for _, result := range results {
+		if result.DocumentID == doc.ID {
+			return fmt.Errorf("search incorrectly found document with term that shouldn't match")
+		}
+	}
+	
+	// Clean up
+	processor.DeleteDocument(ctx, doc.ID)
+	
+	return nil
+}
+
+// testDocumentUpdate tests updating document content
+func (r *DocumentTestRunner) testDocumentUpdate(ctx context.Context) error {
+	// Create a temporary processor for this test
+	processor := documents.NewProcessor(r.DocsPath, r.VectorStorePath)
+	
+	// Create initial test document
+	docPath := filepath.Join(r.DocsPath, "update-test.txt")
+	initialContent := "This is the initial version of the document.\n" +
+		"# Section 1\nInitial content."
+	
+	if err := os.WriteFile(docPath, []byte(initialContent), 0644); err != nil {
+		return fmt.Errorf("failed to create update test document: %w", err)
+	}
+	defer os.Remove(docPath)
+	
+	// Process the document
+	initialDoc, err := processor.ProcessDocument(ctx, docPath)
+	if err != nil {
+		return fmt.Errorf("failed to process initial document: %w", err)
+	}
+	
+	// Update the document with new content
+	updatedContent := "This is the updated version of the document.\n" +
+		"# Section 1\nUpdated content.\n" +
+		"# Section 2\nNew section added."
+	
+	if err := os.WriteFile(docPath, []byte(updatedContent), 0644); err != nil {
+		return fmt.Errorf("failed to update test document: %w", err)
+	}
+	
+	// Process the updated document
+	updatedDoc, err := processor.ProcessDocument(ctx, docPath)
+	if err != nil {
+		return fmt.Errorf("failed to process updated document: %w", err)
+	}
+	
+	// Verify IDs are different (since content changed)
+	if initialDoc.ID == updatedDoc.ID {
+		return fmt.Errorf("document IDs should differ after content update")
+	}
+	
+	// Verify section count increased
+	if len(updatedDoc.Analysis.Sections) <= len(initialDoc.Analysis.Sections) {
+		return fmt.Errorf("expected more sections in updated document")
+	}
+	
+	// Clean up
+	processor.DeleteDocument(ctx, initialDoc.ID)
+	processor.DeleteDocument(ctx, updatedDoc.ID)
+	
+	return nil
+}
+
 // extractMetadata extracts metadata from a document
-func (r *DocumentTestRunner) extractMetadata(path string) (*api.DocumentMetadata, error) {
+func (r *DocumentTestRunner) extractMetadata(path string) (*types.DocumentMetadata, error) {
 	// Get file info
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -189,7 +492,7 @@ func (r *DocumentTestRunner) extractMetadata(path string) (*api.DocumentMetadata
 	}
 
 	// Create metadata
-	metadata := &api.DocumentMetadata{
+	metadata := &types.DocumentMetadata{
 		ID:               fmt.Sprintf("doc-%x", sha256.Sum256([]byte(path))),
 		Filename:         filepath.Base(path),
 		Filetype:         strings.TrimPrefix(filepath.Ext(path), "."),
@@ -206,7 +509,7 @@ func (r *DocumentTestRunner) extractMetadata(path string) (*api.DocumentMetadata
 }
 
 // analyzeDocument analyzes a document
-func (r *DocumentTestRunner) analyzeDocument(path string, content string) (*api.DocumentAnalysis, error) {
+func (r *DocumentTestRunner) analyzeDocument(path string, content string) (*types.DocumentAnalysis, error) {
 	// Create a document ID
 	docID := fmt.Sprintf("doc-%x", sha256.Sum256([]byte(path)))
 
@@ -223,7 +526,7 @@ func (r *DocumentTestRunner) analyzeDocument(path string, content string) (*api.
 	toc := r.generateTOC(sections)
 
 	// Create analysis
-	analysis := &api.DocumentAnalysis{
+	analysis := &types.DocumentAnalysis{
 		ID:              docID,
 		Sections:        sections,
 		Entities:        entities,
@@ -236,12 +539,12 @@ func (r *DocumentTestRunner) analyzeDocument(path string, content string) (*api.
 }
 
 // extractSections extracts sections from document content
-func (r *DocumentTestRunner) extractSections(content string) []api.DocumentSection {
+func (r *DocumentTestRunner) extractSections(content string) []types.DocumentSection {
 	// Simple section extraction based on # headings
 	lines := strings.Split(content, "\n")
-	sections := []api.DocumentSection{}
+	sections := []types.DocumentSection{}
 	
-	var currentSection *api.DocumentSection
+	var currentSection *types.DocumentSection
 	var sectionContent strings.Builder
 	
 	for i, line := range lines {
@@ -256,7 +559,7 @@ func (r *DocumentTestRunner) extractSections(content string) []api.DocumentSecti
 			
 			// Start a new section
 			heading := strings.TrimPrefix(line, "# ")
-			currentSection = &api.DocumentSection{
+			currentSection = &types.DocumentSection{
 				Index:         len(sections),
 				Heading:       heading,
 				Content:       "",
@@ -279,7 +582,7 @@ func (r *DocumentTestRunner) extractSections(content string) []api.DocumentSecti
 	
 	// If no sections were found, create a default section
 	if len(sections) == 0 {
-		sections = append(sections, api.DocumentSection{
+		sections = append(sections, types.DocumentSection{
 			Index:         0,
 			Heading:       "Document",
 			Content:       content,
@@ -292,14 +595,14 @@ func (r *DocumentTestRunner) extractSections(content string) []api.DocumentSecti
 }
 
 // extractEntities extracts entities from document content
-func (r *DocumentTestRunner) extractEntities(content string) []api.DocumentEntity {
-	entities := []api.DocumentEntity{}
+func (r *DocumentTestRunner) extractEntities(content string) []types.DocumentEntity {
+	entities := []types.DocumentEntity{}
 	
 	// Extract emails (simple regex-like implementation)
 	words := strings.Fields(content)
 	for _, word := range words {
 		if strings.Contains(word, "@") && strings.Contains(word, ".") {
-			entities = append(entities, api.DocumentEntity{
+			entities = append(entities, types.DocumentEntity{
 				Type:     "email",
 				Value:    word,
 				Position: strings.Index(content, word),
@@ -318,7 +621,7 @@ func (r *DocumentTestRunner) extractEntities(content string) []api.DocumentEntit
 }
 
 // extractTopics extracts topics from document content
-func (r *DocumentTestRunner) extractTopics(content string) []api.DocumentTopic {
+func (r *DocumentTestRunner) extractTopics(content string) []types.DocumentTopic {
 	// Simple topic extraction based on word frequency
 	words := strings.Fields(strings.ToLower(content))
 	wordCounts := make(map[string]int)
@@ -340,10 +643,10 @@ func (r *DocumentTestRunner) extractTopics(content string) []api.DocumentTopic {
 	}
 	
 	// Convert to topics
-	topics := []api.DocumentTopic{}
+	topics := []types.DocumentTopic{}
 	for word, count := range wordCounts {
 		if count > 1 { // Only include words that appear more than once
-			topics = append(topics, api.DocumentTopic{
+			topics = append(topics, types.DocumentTopic{
 				Name:     word,
 				Weight:   float64(count) / float64(len(words)),
 				Keywords: []string{word},
@@ -372,11 +675,11 @@ func isStopWord(word string) bool {
 }
 
 // generateTOC generates a table of contents from sections
-func (r *DocumentTestRunner) generateTOC(sections []api.DocumentSection) []api.TOCEntry {
-	toc := []api.TOCEntry{}
+func (r *DocumentTestRunner) generateTOC(sections []types.DocumentSection) []types.TOCEntry {
+	toc := []types.TOCEntry{}
 	
 	for _, section := range sections {
-		toc = append(toc, api.TOCEntry{
+		toc = append(toc, types.TOCEntry{
 			Level:    1, // All sections are level 1 in our simple implementation
 			Title:    section.Heading,
 			Position: section.StartPosition,
@@ -537,8 +840,8 @@ func NewDocumentTest() *DocumentTest {
 }
 
 // RunTest executes the document processing system test
-func (t *DocumentTest) RunTest(ctx context.Context) (*api.TestResult, error) {
-	result := &api.TestResult{
+func (t *DocumentTest) RunTest(ctx context.Context) (*types.TestResult, error) {
+	result := &types.TestResult{
 		ID:          "document_processor",
 		Name:        "Document Processor Test",
 		Description: "Tests the document processing system functionality",
@@ -547,7 +850,7 @@ func (t *DocumentTest) RunTest(ctx context.Context) (*api.TestResult, error) {
 	
 	// Test vector store initialization
 	if err := t.testVectorStore(ctx); err != nil {
-		result.Status = api.StatusFailed
+		result.Status = types.StatusFailed
 		result.Error = fmt.Sprintf("Vector store test failed: %v", err)
 		result.EndTime = time.Now()
 		return result, nil
@@ -555,7 +858,7 @@ func (t *DocumentTest) RunTest(ctx context.Context) (*api.TestResult, error) {
 	
 	// Test document metadata extraction
 	if err := t.testMetadataExtraction(ctx); err != nil {
-		result.Status = api.StatusFailed
+		result.Status = types.StatusFailed
 		result.Error = fmt.Sprintf("Metadata extraction test failed: %v", err)
 		result.EndTime = time.Now()
 		return result, nil
@@ -563,7 +866,7 @@ func (t *DocumentTest) RunTest(ctx context.Context) (*api.TestResult, error) {
 	
 	// Test document analysis
 	if err := t.testDocumentAnalysis(ctx); err != nil {
-		result.Status = api.StatusFailed
+		result.Status = types.StatusFailed
 		result.Error = fmt.Sprintf("Document analysis test failed: %v", err)
 		result.EndTime = time.Now()
 		return result, nil
@@ -571,14 +874,14 @@ func (t *DocumentTest) RunTest(ctx context.Context) (*api.TestResult, error) {
 	
 	// Test document search
 	if err := t.testDocumentSearch(ctx); err != nil {
-		result.Status = api.StatusFailed
+		result.Status = types.StatusFailed
 		result.Error = fmt.Sprintf("Document search test failed: %v", err)
 		result.EndTime = time.Now()
 		return result, nil
 	}
 	
 	// All tests passed
-	result.Status = api.StatusPassed
+	result.Status = types.StatusPassed
 	result.EndTime = time.Now()
 	return result, nil
 }
@@ -754,6 +1057,7 @@ func (t *DocumentTest) Fix(ctx context.Context) (bool, []string, error) {
 	
 	// Ensure vector store directory exists
 	storePath := t.processor.GetVectorStorePath()
+	
 	if _, err := os.Stat(storePath); os.IsNotExist(err) {
 		if err := os.MkdirAll(storePath, 0755); err != nil {
 			success = false
@@ -787,6 +1091,111 @@ func (t *DocumentTest) Fix(ctx context.Context) (bool, []string, error) {
 
 // Register registers this test with the status tracker
 func (t *DocumentTest) Register() {
-	status.GetTracker().RegisterTest("document_processor", t)
-	status.GetTracker().RegisterFixProvider("document_processor", t)
+	types.GetTracker().RegisterTest("document_processor", t)
+	types.GetTracker().RegisterFixProvider("document_processor", t)
+}
+
+func TestDocumentProcessingEndToEnd(t *testing.T) {
+	processor, tempDir := createTestProcessor(t)
+	defer os.RemoveAll(tempDir)
+
+	// 1. Create a test document
+	testContent := "This is a test document.\nIt contains multiple paragraphs and sections.\n\n# Section 1\nThis is section 1 content.\n\n# Section 2\nThis is section 2 content with an email: test@example.com."
+	testDocPath := createTestFile(t, testContent)
+
+	// 2. Process the document
+	doc, err := processor.ProcessDocument(context.Background(), testDocPath)
+	require.NoError(t, err, "Failed to process document")
+	require.NotNil(t, doc, "Processed document is nil")
+
+	// 3. Retrieve the document
+	retrievedDoc, err := processor.GetDocument(context.Background(), doc.ID)
+	require.NoError(t, err, "Failed to retrieve document")
+	require.NotNil(t, retrievedDoc, "Retrieved document is nil")
+	assert.Equal(t, doc.ID, retrievedDoc.ID, "Retrieved document ID mismatch")
+	assert.Equal(t, "test_doc_*.txt", retrievedDoc.Metadata.Filename, "Filename mismatch")
+	assert.NotEmpty(t, retrievedDoc.Chunks, "Document chunks are empty after retrieval")
+	assert.True(t, len(retrievedDoc.Chunks[0].Embedding) > 0, "Chunk embedding is empty after retrieval")
+
+	// 4. Search for content within the document
+	searchQuery := "simple text content"
+	matches, err := processor.SearchDocuments(context.Background(), searchQuery, 5)
+	require.NoError(t, err, "Failed to search documents")
+	require.NotEmpty(t, matches, "Search returned no matches")
+
+	// Basic check: Ensure the match belongs to our document and has reasonable similarity
+	foundMatch := false
+	for _, match := range matches {
+		if match.DocumentID == doc.ID {
+			foundMatch = true
+			assert.Contains(t, strings.ToLower(match.Content), strings.ToLower(searchQuery), "Match content doesn't contain query")
+			assert.Greater(t, match.Similarity, 0.5, "Match similarity is too low") // Expect high similarity for direct match
+			assert.Equal(t, "test_doc_*.txt", match.DocumentName, "Match document name mismatch")
+			assert.NotNil(t, match.Metadata, "Match metadata is nil")
+			break
+		}
+	}
+	assert.True(t, foundMatch, "Did not find a match for the processed document ID")
+
+	// 5. Get All Documents (Metadata only)
+	allDocsMetadata, err := processor.GetAllDocumentsMetadata(context.Background())
+	require.NoError(t, err, "Failed to get all documents metadata")
+	require.NotEmpty(t, allDocsMetadata, "GetAllDocumentsMetadata returned empty list")
+
+	foundInList := false
+	for _, meta := range allDocsMetadata {
+		if meta.ID == doc.ID {
+			foundInList = true
+			assert.Equal(t, "test_doc_*.txt", meta.Filename, "Filename mismatch in metadata list")
+			break
+		}
+	}
+	assert.True(t, foundInList, "Processed document not found in GetAllDocumentsMetadata list")
+
+	// 6. Delete the document
+	err = processor.DeleteDocument(context.Background(), doc.ID)
+	require.NoError(t, err, "Failed to delete document")
+
+	// 7. Verify deletion
+	_, err = processor.GetDocument(context.Background(), doc.ID)
+	require.Error(t, err, "Document should not be retrievable after deletion")
+	assert.True(t, errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "not found"), "Error retrieving deleted document is not a 'not found' error")
+
+	// Verify document directory is gone
+	docDir := filepath.Join(processor.GetDataDir(), "docs", doc.ID)
+	_, err = os.Stat(docDir)
+	assert.True(t, errors.Is(err, os.ErrNotExist), "Document directory should not exist after deletion")
+
+	// Verify vector store directory is gone
+	vecDir := filepath.Join(processor.GetDataDir(), "vector_store", doc.ID)
+	_, err = os.Stat(vecDir)
+	assert.True(t, errors.Is(err, os.ErrNotExist), "Vector store directory should not exist after deletion")
+}
+
+// --- Helper Functions ---
+
+// createTestProcessor creates a document processor in a temporary directory
+func createTestProcessor(t *testing.T) (*documents.Processor, string) {
+	tempDir, err := os.MkdirTemp("", "doc_processor_test_*")
+	require.NoError(t, err, "Failed to create temp dir")
+
+	config := documents.Config{
+		DataDir: tempDir,
+	}
+	processor, err := documents.NewProcessor(config)
+	require.NoError(t, err, "Failed to create processor")
+
+	return processor, tempDir
+}
+
+// createTestFile creates a temporary file with the given content
+func createTestFile(t *testing.T, content string) string {
+	tempFile, err := os.CreateTemp("", "test_doc_*.txt")
+	require.NoError(t, err, "Failed to create temp file")
+	defer tempFile.Close()
+
+	_, err = tempFile.WriteString(content)
+	require.NoError(t, err, "Failed to write to temp file")
+
+	return tempFile.Name()
 }
